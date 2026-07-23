@@ -10,6 +10,10 @@ RUN npm ci --omit=dev
 # Ostatak koda.
 COPY . .
 
+# Folder za trajnu istoriju razgovora (montiraj kao volume u Coolify-ju!).
+ENV DATA_DIR=/app/data
+RUN mkdir -p /app/data && chown -R node:node /app/data
+
 # Ne radi kao root.
 USER node
 

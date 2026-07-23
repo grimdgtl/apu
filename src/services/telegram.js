@@ -2,6 +2,7 @@ import { Telegraf } from 'telegraf';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { runAgent } from './claude.js';
+import { loadHistories, saveHistories } from '../store.js';
 
 /**
  * Telegram servis — sloj između korisnika i Claude agenta.
@@ -14,26 +15,37 @@ import { runAgent } from './claude.js';
 
 export const bot = new Telegraf(config.telegram.token);
 
-// Istorija razgovora po chatId. U produkciji zameni trajnom bazom po želji.
-const histories = new Map();
-const MAX_HISTORY = 20; // poslednjih N poruka (korisnik+asistent)
+// Istorija razgovora po chatId — učitana sa diska, pa preživi restart.
+const histories = loadHistories();
 
-function getHistory(chatId) {
-  if (!histories.has(chatId)) histories.set(chatId, []);
-  return histories.get(chatId);
+// Broj PRAVIH razmena (tvojih tekstualnih poruka) koje pamtimo.
+// Ne brojimo sirove poruke, jer jedan upit sa alatima napravi njih 4+.
+const MAX_TURNS = 12;
+
+function key(chatId) {
+  return String(chatId);
 }
 
+function getHistory(chatId) {
+  return histories.get(key(chatId)) ?? [];
+}
+
+/**
+ * Skraćuje istoriju BEZ kidanja tool_use/tool_result parova.
+ *
+ * Seče isključivo na granici prave korisničke poruke (tekst, ne tool_result),
+ * pa istorija uvek počinje čistom razmenom i svaki tool poziv zadržava svoj
+ * rezultat. Stara verzija je slepo bacala poruke s početka i umela da ostavi
+ * tool_use bez para — što ruši kontekst (i API poziv).
+ */
 function trimHistory(history) {
-  // Zadrži poslednjih MAX_HISTORY, ali nikad ne počinji sa tool_result porukom.
-  while (history.length > MAX_HISTORY) history.shift();
-  while (
-    history.length &&
-    history[0].role === 'user' &&
-    Array.isArray(history[0].content) &&
-    history[0].content[0]?.type === 'tool_result'
-  ) {
-    history.shift();
+  const turnStarts = [];
+  for (let i = 0; i < history.length; i++) {
+    const m = history[i];
+    if (m.role === 'user' && typeof m.content === 'string') turnStarts.push(i);
   }
+  if (turnStarts.length <= MAX_TURNS) return history;
+  return history.slice(turnStarts[turnStarts.length - MAX_TURNS]);
 }
 
 function isOwner(chatId) {
@@ -48,7 +60,8 @@ bot.start((ctx) => {
 
 bot.command('reset', (ctx) => {
   if (!isOwner(ctx.chat.id)) return;
-  histories.delete(ctx.chat.id);
+  histories.delete(key(ctx.chat.id));
+  saveHistories(histories);
   ctx.reply('Istorija razgovora je obrisana. 🧹');
 });
 
@@ -62,8 +75,8 @@ bot.on('text', async (ctx) => {
   const userText = ctx.message.text;
   logger.info(`Poruka od vlasnika: ${userText}`);
 
-  const history = getHistory(chatId);
-  history.push({ role: 'user', content: userText });
+  // Ne diramo sačuvano stanje dok poziv ne uspe — radimo nad kopijom.
+  const history = [...getHistory(chatId), { role: 'user', content: userText }];
 
   // "kuca..." indikator dok Claude radi.
   const typing = setInterval(() => ctx.sendChatAction('typing').catch(() => {}), 4000);
@@ -72,8 +85,8 @@ bot.on('text', async (ctx) => {
   try {
     const { text, messages } = await runAgent(history);
     // Sačuvaj kompletnu istoriju (uključujući tool pozive) za kontekst.
-    histories.set(chatId, messages);
-    trimHistory(histories.get(chatId));
+    histories.set(key(chatId), trimHistory(messages));
+    saveHistories(histories);
     await replyChunked(ctx, text);
   } catch (err) {
     logger.error('Greška pri obradi poruke:', err);
