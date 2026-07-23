@@ -2,67 +2,112 @@ import { config } from '../config.js';
 
 /**
  * Definicije alata (Anthropic "tools" format) koje Claude može da pozove.
- * Svaki alat ima ime, opis (na srpskom, da model dobro razume kada da ga koristi)
- * i JSON schema za ulazne parametre.
  *
- * Trenutno vreme i vremenska zona ubacuju se u system prompt, pa model zna
- * kako da računa "danas", "sutra" itd.
+ * Svaka definicija ima i interno polje `feature` — po njemu se alat uključuje
+ * ili gasi zavisno od toga šta je konfigurisano. To polje se skida pre slanja
+ * modelu (nije deo Anthropic šeme).
  */
 
-export const toolDefinitions = [
-  // ---------- Notion ----------
+const definitions = [
+  // ---------- Notion: zadaci ----------
   {
-    name: 'notion_query',
+    feature: 'notionTasks',
+    name: 'notion_add_task',
     description:
-      'Čita redove iz Notion baze. Koristi za pregled faktura ili stavki održavanja. ' +
-      'Vrati listu redova sa svim kolonama.',
+      'Dodaje novi zadatak u to-do listu (Notion baza TASK BOARD). ' +
+      'Koristi kada korisnik kaže npr. "dodaj mi ovo u taskove", "podseti me da uradim X", ' +
+      '"ubaci na listu".',
     input_schema: {
       type: 'object',
       properties: {
-        database: {
+        title: { type: 'string', description: 'Naziv zadatka, kratko i jasno.' },
+        status: {
           type: 'string',
-          enum: ['invoices', 'maintenance'],
-          description: 'Koja baza: "invoices" (fakture) ili "maintenance" (održavanje).',
-        },
-        filterText: {
-          type: 'string',
-          description: 'Opcioni tekst za filtriranje redova (pretraga po sadržaju).',
-        },
-        pageSize: {
-          type: 'number',
-          description: 'Maksimalan broj redova (default 20).',
+          enum: ['Not started', 'In progress', 'Done'],
+          description: 'Status zadatka (podrazumevano "Not started").',
         },
       },
-      required: ['database'],
+      required: ['title'],
     },
   },
   {
-    name: 'notion_create',
+    feature: 'notionTasks',
+    name: 'notion_list_tasks',
     description:
-      'Kreira novi red u Notion bazi (nova faktura ili nova stavka održavanja). ' +
-      'Prosledi "fields" kao mapiranje naziva kolone na vrednost, tačno onako kako ' +
-      'se kolone zovu u Notion bazi.',
+      'Vraća zadatke iz to-do liste (TASK BOARD). Koristi za "šta imam da radim", ' +
+      '"koji su mi otvoreni taskovi", jutarnji pregled i slično.',
     input_schema: {
       type: 'object',
       properties: {
-        database: {
+        status: {
           type: 'string',
-          enum: ['invoices', 'maintenance'],
-          description: 'Koja baza: "invoices" (fakture) ili "maintenance" (održavanje).',
+          enum: ['Not started', 'In progress', 'Done'],
+          description: 'Opciono filtriraj po statusu.',
         },
-        fields: {
-          type: 'object',
-          description:
-            'Objekat { "Naziv kolone": vrednost }. Npr. ' +
-            '{ "Naziv": "Faktura 001", "Iznos": 15000, "Status": "Neplaćeno" }.',
+        limit: { type: 'number', description: 'Maksimalan broj zadataka (default 25).' },
+      },
+    },
+  },
+  {
+    feature: 'notionTasks',
+    name: 'notion_update_task_status',
+    description:
+      'Menja status postojećeg zadatka — npr. kad korisnik kaže "označi X kao gotovo". ' +
+      'Prvo pozovi notion_list_tasks da nađeš ID zadatka.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        taskId: { type: 'string', description: 'ID zadatka (iz notion_list_tasks).' },
+        status: {
+          type: 'string',
+          enum: ['Not started', 'In progress', 'Done'],
+          description: 'Novi status.',
         },
       },
-      required: ['database', 'fields'],
+      required: ['taskId', 'status'],
+    },
+  },
+
+  // ---------- Notion: knowledge base ----------
+  {
+    feature: 'notionKb',
+    name: 'notion_add_knowledge',
+    description:
+      'Dodaje novu belešku u Knowledge Base (kao pod-stranicu). Koristi kada korisnik kaže ' +
+      '"dodaj ovo u knowledge base", "zabeleži ovo", "sačuvaj mi ovaj link/tekst".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Naslov beleške.' },
+        content: {
+          type: 'string',
+          description: 'Sadržaj beleške. Svaki novi red postaje zaseban pasus.',
+        },
+      },
+      required: ['title'],
+    },
+  },
+
+  // ---------- Notion: pretraga ----------
+  {
+    feature: 'notionSearch',
+    name: 'notion_search',
+    description:
+      'Pretražuje ceo Notion workspace (stranice i baze) po tekstu. Koristi kada korisnik ' +
+      'traži nešto što je ranije zapisao — "nađi mi ono o...", "gde sam zapisao...".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Tekst za pretragu.' },
+        limit: { type: 'number', description: 'Maksimalan broj rezultata (default 10).' },
+      },
+      required: ['query'],
     },
   },
 
   // ---------- Google Calendar ----------
   {
+    feature: 'calendar',
     name: 'calendar_list_events',
     description:
       'Vraća listu događaja iz kalendara u zadatom vremenskom opsegu. ' +
@@ -76,6 +121,7 @@ export const toolDefinitions = [
     },
   },
   {
+    feature: 'calendar',
     name: 'calendar_find_free_slots',
     description:
       'Pronalazi slobodne termine (rupe u rasporedu) unutar radnog vremena. ' +
@@ -95,6 +141,7 @@ export const toolDefinitions = [
     },
   },
   {
+    feature: 'calendar',
     name: 'calendar_create_event',
     description:
       'Zakazuje novi sastanak/događaj u kalendaru. Može da doda lokaciju, opis i ' +
@@ -119,6 +166,7 @@ export const toolDefinitions = [
 
   // ---------- Mail ----------
   {
+    feature: 'mail',
     name: 'mail_list_unread',
     description: 'Vraća nepročitane mejlove iz sandučeta (najnovije prvo), sa pregledom teksta.',
     input_schema: {
@@ -129,6 +177,7 @@ export const toolDefinitions = [
     },
   },
   {
+    feature: 'mail',
     name: 'mail_save_draft',
     description:
       'Pravi draft (nacrt) odgovora i snima ga u Drafts folder BEZ slanja. ' +
@@ -145,9 +194,11 @@ export const toolDefinitions = [
     },
   },
   {
+    feature: 'mail',
     name: 'mail_send',
     description:
-      'ŠALJE mejl odmah. Koristi tek nakon što korisnik izričito potvrdi da želi da pošalje.',
+      'ŠALJE mejl odmah. Koristi tek nakon što korisnik izričito potvrdi da želi da pošalje. ' +
+      'Kada javljaš korisniku ishod, reci jasno da je mejl POSLAT.',
     input_schema: {
       type: 'object',
       properties: {
@@ -162,17 +213,16 @@ export const toolDefinitions = [
   },
 ];
 
+export const toolDefinitions = definitions;
+
 /**
- * Vraća samo alate čiji su servisi konfigurisani.
- * `enabled` je mapa: { notion, calendar, mail }.
+ * Vraća alate čiji su servisi konfigurisani, bez internog `feature` polja.
+ * @param {Record<string, boolean>} enabled mapa iz config.featureEnabled
  */
 export function getEnabledTools(enabled) {
-  return toolDefinitions.filter((t) => {
-    if (t.name.startsWith('notion_')) return enabled.notion;
-    if (t.name.startsWith('calendar_')) return enabled.calendar;
-    if (t.name.startsWith('mail_')) return enabled.mail;
-    return true;
-  });
+  return definitions
+    .filter((t) => enabled[t.feature])
+    .map(({ feature, ...tool }) => tool);
 }
 
 export const currentTimezone = config.timezone;

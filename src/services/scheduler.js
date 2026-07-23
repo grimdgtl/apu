@@ -45,9 +45,13 @@ async function morningBriefing() {
       parts.push(`Današnji događaji iz kalendara:\n${JSON.stringify(events, null, 2)}`);
     }
 
-    if (featureEnabled.notion && config.notion.maintenanceDbId) {
-      const tasks = await notion.queryDatabase('maintenance', { pageSize: 15 });
-      parts.push(`Stavke održavanja/zadaci iz Notion-a:\n${JSON.stringify(tasks, null, 2)}`);
+    if (featureEnabled.notionTasks) {
+      // Samo otvoreni zadaci — završeni ne trebaju u jutarnjem pregledu.
+      const notStarted = await notion.listTasks({ status: 'Not started', limit: 15 });
+      const inProgress = await notion.listTasks({ status: 'In progress', limit: 15 });
+      parts.push(
+        `Otvoreni zadaci iz Notion-a:\n${JSON.stringify([...inProgress, ...notStarted], null, 2)}`,
+      );
     }
 
     const raw = parts.length

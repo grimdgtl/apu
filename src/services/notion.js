@@ -3,173 +3,146 @@ import { config, featureEnabled } from '../config.js';
 import { logger } from '../logger.js';
 
 /**
- * Notion servis.
+ * Notion servis — prilagođen stvarnoj strukturi workspace-a:
  *
- * Radi sa dve baze:
- *   - fakture     (config.notion.invoicesDbId)
- *   - održavanje  (config.notion.maintenanceDbId)
+ *   TASK BOARD (baza)      → zadaci / to-do lista
+ *     kolone: Name (title), Status (Not started | In progress | Done), Assign (person)
+ *   📚 Knowledge Base (stranica) → beleške se dodaju kao pod-stranice
  *
- * Napomena: nazivi property-ja (kolona) u Notion bazama moraju da postoje.
- * Kod je pisan fleksibilno — čita sve property-je kakvi god da su, a pri
- * upisu pokušava da mapira na najčešće nazive. Prilagodi `buildProperties`
- * svojoj šemi ako se kolone drugačije zovu.
+ * Plus pretraga po celom workspace-u.
  */
+
+const TASK_STATUSES = ['Not started', 'In progress', 'Done'];
 
 let client = null;
 function getClient() {
-  if (!featureEnabled.notion) {
+  if (!config.notion.apiKey) {
     throw new Error('Notion nije konfigurisan (NOTION_API_KEY nedostaje).');
   }
   if (!client) client = new Client({ auth: config.notion.apiKey });
   return client;
 }
 
-function resolveDbId(database) {
-  if (database === 'invoices') return config.notion.invoicesDbId;
-  if (database === 'maintenance') return config.notion.maintenanceDbId;
-  throw new Error(`Nepoznata baza: ${database}. Koristi "invoices" ili "maintenance".`);
+/** Izvlači čitljiv naslov iz Notion page/database objekta. */
+function titleOf(obj) {
+  if (obj.object === 'database') {
+    return (obj.title || []).map((t) => t.plain_text).join('') || '(bez naslova)';
+  }
+  const prop = Object.values(obj.properties || {}).find((p) => p.type === 'title');
+  return (prop?.title || []).map((t) => t.plain_text).join('') || '(bez naslova)';
 }
+
+// ---------------------------------------------------------------- zadaci ---
 
 /**
- * Pretvara Notion property objekat u običnu vrednost (string/number/...).
+ * Dodaje zadatak u TASK BOARD.
  */
-function readProperty(prop) {
-  if (!prop) return null;
-  switch (prop.type) {
-    case 'title':
-      return prop.title.map((t) => t.plain_text).join('');
-    case 'rich_text':
-      return prop.rich_text.map((t) => t.plain_text).join('');
-    case 'number':
-      return prop.number;
-    case 'select':
-      return prop.select?.name ?? null;
-    case 'multi_select':
-      return prop.multi_select.map((s) => s.name);
-    case 'status':
-      return prop.status?.name ?? null;
-    case 'date':
-      return prop.date?.start ?? null;
-    case 'checkbox':
-      return prop.checkbox;
-    case 'url':
-      return prop.url;
-    case 'email':
-      return prop.email;
-    case 'phone_number':
-      return prop.phone_number;
-    case 'people':
-      return prop.people.map((p) => p.name ?? p.id);
-    default:
-      return null;
+export async function addTask({ title, status = 'Not started' }) {
+  if (!featureEnabled.notionTasks) {
+    throw new Error('Baza zadataka nije podešena (NOTION_TASKS_DB_ID nedostaje).');
   }
-}
-
-function pageToObject(page) {
-  const out = { id: page.id, url: page.url };
-  for (const [key, value] of Object.entries(page.properties)) {
-    out[key] = readProperty(value);
-  }
-  return out;
-}
-
-/**
- * Čita redove iz baze. Opcioni `filterText` radi prostu pretragu po naslovu.
- */
-export async function queryDatabase(database, { pageSize = 20, filterText } = {}) {
-  const notion = getClient();
-  const database_id = resolveDbId(database);
-  if (!database_id) throw new Error(`ID baze "${database}" nije podešen u .env.`);
-
-  const query = { database_id, page_size: pageSize };
-
-  const response = await notion.databases.query(query);
-  let rows = response.results.map(pageToObject);
-
-  if (filterText) {
-    const needle = filterText.toLowerCase();
-    rows = rows.filter((r) =>
-      Object.values(r).some(
-        (v) => typeof v === 'string' && v.toLowerCase().includes(needle),
-      ),
-    );
+  if (!TASK_STATUSES.includes(status)) {
+    throw new Error(`Nepoznat status "${status}". Dozvoljeno: ${TASK_STATUSES.join(', ')}.`);
   }
 
-  logger.debug(`Notion query ${database}: ${rows.length} redova`);
-  return rows;
-}
-
-/**
- * Gradi Notion "properties" objekat iz jednostavnog { kolona: vrednost } mapiranja.
- * Prvo dohvata šemu baze da bi znao tip svake kolone.
- */
-async function buildProperties(database_id, fields) {
-  const notion = getClient();
-  const db = await notion.databases.retrieve({ database_id });
-  const schema = db.properties;
-  const properties = {};
-
-  for (const [name, value] of Object.entries(fields)) {
-    const colDef = schema[name];
-    if (!colDef) {
-      logger.warn(`Notion: kolona "${name}" ne postoji u bazi — preskačem.`);
-      continue;
-    }
-    switch (colDef.type) {
-      case 'title':
-        properties[name] = { title: [{ text: { content: String(value) } }] };
-        break;
-      case 'rich_text':
-        properties[name] = { rich_text: [{ text: { content: String(value) } }] };
-        break;
-      case 'number':
-        properties[name] = { number: Number(value) };
-        break;
-      case 'select':
-        properties[name] = { select: { name: String(value) } };
-        break;
-      case 'status':
-        properties[name] = { status: { name: String(value) } };
-        break;
-      case 'multi_select':
-        properties[name] = {
-          multi_select: (Array.isArray(value) ? value : [value]).map((v) => ({
-            name: String(v),
-          })),
-        };
-        break;
-      case 'date':
-        properties[name] = { date: { start: String(value) } };
-        break;
-      case 'checkbox':
-        properties[name] = { checkbox: Boolean(value) };
-        break;
-      case 'url':
-        properties[name] = { url: String(value) };
-        break;
-      case 'email':
-        properties[name] = { email: String(value) };
-        break;
-      default:
-        logger.warn(`Notion: nepodržan tip kolone "${name}" (${colDef.type}).`);
-    }
-  }
-  return properties;
-}
-
-/**
- * Kreira novi red (page) u zadatoj bazi.
- */
-export async function createRow(database, fields) {
-  const notion = getClient();
-  const database_id = resolveDbId(database);
-  if (!database_id) throw new Error(`ID baze "${database}" nije podešen u .env.`);
-
-  const properties = await buildProperties(database_id, fields);
-  const page = await notion.pages.create({
-    parent: { database_id },
-    properties,
+  const page = await getClient().pages.create({
+    parent: { database_id: config.notion.tasksDbId },
+    properties: {
+      Name: { title: [{ text: { content: title } }] },
+      Status: { status: { name: status } },
+    },
   });
-  logger.info(`Notion: kreiran red u "${database}" (${page.id})`);
-  return pageToObject(page);
+
+  logger.info(`Notion: dodat zadatak "${title}" (${status})`);
+  return { id: page.id, url: page.url, title, status };
+}
+
+/**
+ * Čita zadatke iz TASK BOARD-a, opciono filtrirano po statusu.
+ */
+export async function listTasks({ status, limit = 25 } = {}) {
+  if (!featureEnabled.notionTasks) {
+    throw new Error('Baza zadataka nije podešena (NOTION_TASKS_DB_ID nedostaje).');
+  }
+
+  const res = await getClient().databases.query({
+    database_id: config.notion.tasksDbId,
+    page_size: limit,
+    ...(status ? { filter: { property: 'Status', status: { equals: status } } } : {}),
+  });
+
+  const tasks = res.results.map((p) => ({
+    id: p.id,
+    url: p.url,
+    title: titleOf(p),
+    status: p.properties?.Status?.status?.name ?? null,
+  }));
+
+  logger.debug(`Notion listTasks: ${tasks.length} zadataka`);
+  return tasks;
+}
+
+/**
+ * Menja status postojećeg zadatka (npr. označi kao gotov).
+ */
+export async function updateTaskStatus({ taskId, status }) {
+  if (!TASK_STATUSES.includes(status)) {
+    throw new Error(`Nepoznat status "${status}". Dozvoljeno: ${TASK_STATUSES.join(', ')}.`);
+  }
+  const page = await getClient().pages.update({
+    page_id: taskId,
+    properties: { Status: { status: { name: status } } },
+  });
+  logger.info(`Notion: zadatak ${taskId} → ${status}`);
+  return { id: page.id, url: page.url, status };
+}
+
+// -------------------------------------------------------- knowledge base ---
+
+/**
+ * Dodaje belešku u Knowledge Base kao novu pod-stranicu.
+ * Svaki red teksta postaje zaseban paragraf.
+ */
+export async function addKnowledge({ title, content = '' }) {
+  if (!featureEnabled.notionKb) {
+    throw new Error('Knowledge Base nije podešen (NOTION_KB_PAGE_ID nedostaje).');
+  }
+
+  const children = String(content)
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => ({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: { rich_text: [{ type: 'text', text: { content: line } }] },
+    }));
+
+  const page = await getClient().pages.create({
+    parent: { page_id: config.notion.kbPageId },
+    properties: { title: { title: [{ text: { content: title } }] } },
+    children,
+  });
+
+  logger.info(`Notion: dodata beleška u Knowledge Base — "${title}"`);
+  return { id: page.id, url: page.url, title };
+}
+
+// --------------------------------------------------------------- pretraga ---
+
+/**
+ * Pretražuje Notion workspace (stranice i baze) po tekstu.
+ */
+export async function search({ query, limit = 10 }) {
+  const res = await getClient().search({ query, page_size: limit });
+
+  const hits = res.results.map((r) => ({
+    id: r.id,
+    type: r.object,
+    title: titleOf(r),
+    url: r.url,
+    lastEdited: r.last_edited_time,
+  }));
+
+  logger.debug(`Notion search "${query}": ${hits.length} rezultata`);
+  return hits;
 }

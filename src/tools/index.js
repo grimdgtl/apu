@@ -10,12 +10,11 @@ import { logger } from '../logger.js';
 
 const handlers = {
   // Notion
-  notion_query: (input) =>
-    notion.queryDatabase(input.database, {
-      pageSize: input.pageSize,
-      filterText: input.filterText,
-    }),
-  notion_create: (input) => notion.createRow(input.database, input.fields),
+  notion_add_task: (input) => notion.addTask(input),
+  notion_list_tasks: (input) => notion.listTasks(input),
+  notion_update_task_status: (input) => notion.updateTaskStatus(input),
+  notion_add_knowledge: (input) => notion.addKnowledge(input),
+  notion_search: (input) => notion.search(input),
 
   // Calendar
   calendar_list_events: (input) => calendar.listEvents(input),

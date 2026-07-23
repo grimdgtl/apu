@@ -35,8 +35,10 @@ export const config = {
 
   notion: {
     apiKey: optional('NOTION_API_KEY'),
-    invoicesDbId: optional('NOTION_INVOICES_DB_ID'),
-    maintenanceDbId: optional('NOTION_MAINTENANCE_DB_ID'),
+    // Baza zadataka (TASK BOARD) — "dodaj mi ovo u taskove".
+    tasksDbId: optional('NOTION_TASKS_DB_ID'),
+    // Stranica Knowledge Base — "zabeleži ovo u knowledge base".
+    kbPageId: optional('NOTION_KB_PAGE_ID'),
   },
 
   google: {
@@ -80,7 +82,10 @@ export const config = {
  * Koristi se da bismo "gasili" alate koji nisu konfigurisani.
  */
 export const featureEnabled = {
-  notion: Boolean(config.notion.apiKey),
+  // Pretraga radi sa samim ključem; upis traži i konkretan ID odredišta.
+  notionSearch: Boolean(config.notion.apiKey),
+  notionTasks: Boolean(config.notion.apiKey && config.notion.tasksDbId),
+  notionKb: Boolean(config.notion.apiKey && config.notion.kbPageId),
   calendar: Boolean(
     config.google.clientId && config.google.clientSecret && config.google.refreshToken,
   ),
