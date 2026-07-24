@@ -80,7 +80,7 @@ export async function readFile({ fileId }) {
   const text =
     content == null
       ? `(fajl tipa ${mt} nije tekstualni — ne mogu da ga pročitam ovde)`
-      : String(content).slice(0, MAX_CONTENT);
+      : String(content).replace(/^﻿/, '').slice(0, MAX_CONTENT); // skini BOM
 
   logger.info(`Drive: pročitan fajl "${meta.data.name}" (${mt})`);
   return { id: fileId, name: meta.data.name, type: mt, content: text };
