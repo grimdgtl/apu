@@ -1,8 +1,9 @@
 import { Telegraf } from 'telegraf';
-import { config } from '../config.js';
+import { config, featureEnabled } from '../config.js';
 import { logger } from '../logger.js';
 import { runAgent } from './claude.js';
 import { loadHistories, saveHistories } from '../store.js';
+import { transcribe } from './transcribe.js';
 
 /**
  * Telegram servis — sloj između korisnika i Claude agenta.
@@ -76,16 +77,10 @@ bot.command('reset', (ctx) => {
   ctx.reply('Istorija razgovora je obrisana. 🧹');
 });
 
-bot.on('text', async (ctx) => {
-  const chatId = ctx.chat.id;
-  if (!isOwner(chatId)) {
-    logger.warn(`Ignorišem poruku od ne-vlasnika (chatId ${chatId}).`);
-    return;
-  }
-
-  const userText = ctx.message.text;
-  logger.info(`Poruka od vlasnika: ${userText}`);
-
+/**
+ * Zajednička obrada — prosleđuje tekst (otkucan ili transkribovan) Claude agentu.
+ */
+async function respondTo(ctx, chatId, userText) {
   // Ne diramo sačuvano stanje dok poziv ne uspe — radimo nad kopijom.
   const history = [...getHistory(chatId), { role: 'user', content: userText }];
 
@@ -104,6 +99,47 @@ bot.on('text', async (ctx) => {
     await ctx.reply('Ups, došlo je do greške pri obradi zahteva. Pokušaj ponovo.');
   } finally {
     clearInterval(typing);
+  }
+}
+
+bot.on('text', async (ctx) => {
+  const chatId = ctx.chat.id;
+  if (!isOwner(chatId)) {
+    logger.warn(`Ignorišem poruku od ne-vlasnika (chatId ${chatId}).`);
+    return;
+  }
+  const userText = ctx.message.text;
+  logger.info(`Poruka od vlasnika: ${userText}`);
+  await respondTo(ctx, chatId, userText);
+});
+
+// Glasovne poruke: skini OGG → transkribuj (Whisper) → isti tok kao tekst.
+bot.on('voice', async (ctx) => {
+  const chatId = ctx.chat.id;
+  if (!isOwner(chatId)) return;
+
+  if (!featureEnabled.voice) {
+    await ctx.reply('Glasovne poruke još nisu podešene (nedostaje OPENAI_API_KEY ili GROQ_API_KEY).');
+    return;
+  }
+
+  ctx.sendChatAction('typing').catch(() => {});
+  try {
+    const link = await ctx.telegram.getFileLink(ctx.message.voice.file_id);
+    const audio = Buffer.from(await (await fetch(link.href)).arrayBuffer());
+    const text = await transcribe(audio);
+
+    if (!text) {
+      await ctx.reply('Nisam razumeo glasovnu poruku — pokušaj ponovo.');
+      return;
+    }
+
+    // Pokaži šta je razumeo, pa obradi kao običnu poruku.
+    await ctx.reply(`🎤 „${text}"`);
+    await respondTo(ctx, chatId, text);
+  } catch (err) {
+    logger.error('Greška pri obradi glasovne:', err);
+    await ctx.reply('Nisam uspeo da obradim glasovnu poruku. Pokušaj ponovo.');
   }
 });
 

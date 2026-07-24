@@ -18,6 +18,7 @@ async function main() {
     notionKb: featureEnabled.notionKb,
     calendar: featureEnabled.calendar,
     mail: featureEnabled.mail,
+    glasovne: featureEnabled.voice,
   });
 
   startScheduler();

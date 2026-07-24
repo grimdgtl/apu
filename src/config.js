@@ -71,6 +71,12 @@ export const config = {
     resendApiKey: optional('RESEND_API_KEY'),
   },
 
+  // Transkripcija glasovnih poruka (Whisper). Bira se po prisutnom ključu.
+  transcription: {
+    openaiKey: optional('OPENAI_API_KEY'),
+    groqKey: optional('GROQ_API_KEY'),
+  },
+
   timezone: optional('TIMEZONE', 'Europe/Belgrade'),
 
   cron: {
@@ -92,4 +98,5 @@ export const featureEnabled = {
     config.google.clientId && config.google.clientSecret && config.google.refreshToken,
   ),
   mail: Boolean(config.mail.imap.user && config.mail.imap.password),
+  voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
 };
