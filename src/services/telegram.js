@@ -90,6 +90,37 @@ bot.command('reset', (ctx) => {
   ctx.reply('Istorija razgovora je obrisana. 🧹');
 });
 
+// /status — brz pregled uključenih integracija, bez gledanja u logove servera.
+// Za isključene navodi koji env var fali, pa se odmah vidi šta treba dopuniti.
+bot.command('status', (ctx) => {
+  if (!isOwner(ctx.chat.id)) return;
+
+  const rows = [
+    ['Notion zadaci', featureEnabled.notionTasks, 'NOTION_API_KEY + NOTION_TASKS_DB_ID'],
+    ['Notion Knowledge Base', featureEnabled.notionKb, 'NOTION_API_KEY + NOTION_KB_PAGE_ID'],
+    ['Google Calendar', featureEnabled.calendar, 'GOOGLE_CLIENT_ID/SECRET + REFRESH_TOKEN'],
+    ['Google Drive', featureEnabled.drive, 'GOOGLE_CLIENT_ID/SECRET + REFRESH_TOKEN'],
+    ['Email', featureEnabled.mail, 'IMAP_USER + IMAP_PASSWORD'],
+    ['Glasovne poruke', featureEnabled.voice, 'OPENAI_API_KEY ili GROQ_API_KEY'],
+    ['Monitoring sajtova', featureEnabled.siteMonitor, 'NOTION_API_KEY + NOTION_CLIENTS_DB_ID'],
+    ['Vremenska prognoza', featureEnabled.weather, ''],
+    ['Izveštaji (Google Doc)', featureEnabled.reports, 'GOOGLE_CLIENT_ID/SECRET + REFRESH_TOKEN'],
+  ];
+
+  const lines = rows.map(([name, on, missing]) =>
+    on ? `✅ ${name}` : `❌ ${name} — fali: ${missing}`,
+  );
+
+  const extra = [`\nModel: ${config.anthropic.model}`];
+  if (featureEnabled.siteMonitor) {
+    extra.push(
+      `Provere sajtova: tiho "${config.cron.siteCheckSilent}", izveštaj "${config.cron.siteCheckReport}"`,
+    );
+  }
+
+  ctx.reply(`Stanje integracija:\n\n${lines.join('\n')}\n${extra.join('\n')}`);
+});
+
 /**
  * Zajednička obrada — prosleđuje sadržaj (tekst, transkript ili sliku) Claude
  * agentu. `userContent` je string (tekst) ili niz content blokova (npr. slika).

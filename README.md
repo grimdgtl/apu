@@ -12,6 +12,8 @@ modelu i vraća odgovor na srpskom.
 ## Funkcionalnosti
 
 - 🤖 **Telegram bot** — sluša tvoje poruke i odgovara prirodno na srpskom.
+  Komande: `/status` (koje su integracije uključene i šta fali), `/reset`
+  (briše istoriju razgovora).
 - 🧠 **Claude tool calling** — model sam bira i poziva alate kad su potrebni.
 - 🗂️ **Notion** — čitanje i upis u baze *faktura* i *održavanja*.
 - 📅 **Google Calendar** — pregled, traženje slobodnih termina, zakazivanje
