@@ -3,6 +3,8 @@ import * as calendar from '../services/calendar.js';
 import * as drive from '../services/drive.js';
 import * as mail from '../services/mail.js';
 import { checkAllSites } from '../services/monitor.js';
+import { getForecast } from '../services/weather.js';
+import { generateReport } from '../services/reports.js';
 import { logger } from '../logger.js';
 
 /**
@@ -36,6 +38,12 @@ const handlers = {
 
   // Monitoring sajtova
   monitor_check_sites: () => checkAllSites(),
+
+  // Vreme
+  weather_get: () => getForecast(),
+
+  // Izveštaji
+  generate_report: (input) => generateReport(input),
 };
 
 /**

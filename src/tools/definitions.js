@@ -288,6 +288,47 @@ const definitions = [
       properties: {},
     },
   },
+
+  // ---------- Vreme ----------
+  {
+    feature: 'weather',
+    name: 'weather_get',
+    description:
+      'Vraća današnju vremensku prognozu (trenutna temperatura, min/max, opis, vetar, ' +
+      'verovatnoća padavina) za podešenu lokaciju. Koristi kad korisnik pita "kakvo je vreme", ' +
+      '"hoće li padati kiša", "koliko je napolju".',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+
+  // ---------- Izveštaji ----------
+  {
+    feature: 'reports',
+    name: 'generate_report',
+    description:
+      'Sastavlja uredan izveštaj iz stvarnih podataka (Notion zadaci po statusu, događaji iz ' +
+      'kalendara u opsegu, opciono status sajtova) i čuva ga kao Google Doc, pa vraća link. ' +
+      'Koristi kada korisnik kaže "napravi izveštaj", "sumiraj ovu nedelju u dokument", ' +
+      '"izveštaj o urađenom". Za nedeljni izveštaj ostavi podrazumevani opseg (poslednjih 7 dana).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Naslov izveštaja (opciono).' },
+        instructions: {
+          type: 'string',
+          description: 'Šta izveštaj treba posebno da obuhvati ili naglasi (opciono).',
+        },
+        from: { type: 'string', description: 'ISO/date početak opsega za kalendar (default: pre 7 dana).' },
+        to: { type: 'string', description: 'ISO/date kraj opsega za kalendar (default: danas).' },
+        includeTasks: { type: 'boolean', description: 'Uključi Notion zadatke (default true).' },
+        includeCalendar: { type: 'boolean', description: 'Uključi kalendar u opsegu (default true).' },
+        includeSites: { type: 'boolean', description: 'Uključi status sajtova (default false).' },
+        saveToDoc: { type: 'boolean', description: 'Sačuvaj kao Google Doc (default true).' },
+      },
+    },
+  },
 ];
 
 export const toolDefinitions = definitions;

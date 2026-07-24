@@ -20,8 +20,14 @@ modelu i vraća odgovor na srpskom.
 - 🌐 **Monitoring sajtova** — dva puta dnevno proverava da li su sajtovi
   klijenata (iz Notion **KLIJENTI** baze, status *Aktivan*) dostupni i dovoljno
   brzi; možeš i ručno da pitaš „jesu li sajtovi OK?".
+- 🌦️ **Vremenska prognoza** — deo jutarnjeg pregleda; možeš i direktno da pitaš
+  „kakvo je vreme?" (Open-Meteo, bez API ključa).
+- 📷 **Čitanje slika** — pošalji fotografiju (npr. račun ili dokument) i bot je
+  analizira i izdvaja ključne podatke (Claude vision).
+- 📝 **Izveštaji u Google Doc** — „napravi izveštaj o ovoj nedelji": skupi
+  zadatke, kalendar i status sajtova, sastavi izveštaj i sačuva ga kao Doc.
 - ⏰ **Proaktivni podsetnici**:
-  - svaki dan u **10:00** — jutarnji pregled sastanaka i zadataka,
+  - svaki dan u **10:00** — jutarnji pregled (vreme + sastanci + zadaci),
   - svaki dan u **10:00** — tiha provera sajtova (javi samo ako nešto ne radi),
   - svaki dan u **18:00** — pun izveštaj o stanju sajtova,
   - svakog **14. u mesecu u 10:00** — podsetnik za plaćanje poreza.

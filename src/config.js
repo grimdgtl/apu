@@ -81,6 +81,13 @@ export const config = {
 
   timezone: optional('TIMEZONE', 'Europe/Belgrade'),
 
+  // Vremenska prognoza (Open-Meteo, bez ključa). Podrazumevano Beograd.
+  weather: {
+    latitude: Number(optional('WEATHER_LAT', '44.7866')),
+    longitude: Number(optional('WEATHER_LON', '20.4489')),
+    locationName: optional('WEATHER_LOCATION', 'Beograd'),
+  },
+
   // Monitoring sajtova — pragovi za "pao" (timeout) i "sporo".
   monitor: {
     timeoutMs: Number(optional('SITE_MONITOR_TIMEOUT_MS', '15000')),
@@ -117,4 +124,10 @@ export const featureEnabled = {
   voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
   // Monitoring sajtova traži Notion ključ i ID KLIJENTI baze.
   siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
+  // Vremenska prognoza (Open-Meteo) ne traži ključ — uvek dostupna.
+  weather: true,
+  // Generisanje izveštaja u Google Doc traži Drive (isti OAuth kao kalendar).
+  reports: Boolean(
+    config.google.clientId && config.google.clientSecret && config.google.refreshToken,
+  ),
 };

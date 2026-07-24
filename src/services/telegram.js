@@ -43,18 +43,31 @@ function getHistory(chatId) {
 }
 
 /**
+ * Da li je poruka POČETAK prave korisničke razmene (tekst ili slika koju je
+ * poslao korisnik), a ne tool_result koji vraćamo modelu usred obrade.
+ * tool_result poruke imaju array sadržaj čiji su elementi type "tool_result".
+ */
+function isUserTurn(m) {
+  if (m.role !== 'user') return false;
+  if (typeof m.content === 'string') return true;
+  if (Array.isArray(m.content)) {
+    return !m.content.some((b) => b?.type === 'tool_result');
+  }
+  return false;
+}
+
+/**
  * Skraćuje istoriju BEZ kidanja tool_use/tool_result parova.
  *
- * Seče isključivo na granici prave korisničke poruke (tekst, ne tool_result),
- * pa istorija uvek počinje čistom razmenom i svaki tool poziv zadržava svoj
- * rezultat. Stara verzija je slepo bacala poruke s početka i umela da ostavi
- * tool_use bez para — što ruši kontekst (i API poziv).
+ * Seče isključivo na granici prave korisničke poruke (tekst/slika, ne
+ * tool_result), pa istorija uvek počinje čistom razmenom i svaki tool poziv
+ * zadržava svoj rezultat. Stara verzija je slepo bacala poruke s početka i
+ * umela da ostavi tool_use bez para — što ruši kontekst (i API poziv).
  */
 function trimHistory(history) {
   const turnStarts = [];
   for (let i = 0; i < history.length; i++) {
-    const m = history[i];
-    if (m.role === 'user' && typeof m.content === 'string') turnStarts.push(i);
+    if (isUserTurn(history[i])) turnStarts.push(i);
   }
   if (turnStarts.length <= MAX_TURNS) return history;
   return history.slice(turnStarts[turnStarts.length - MAX_TURNS]);
@@ -78,11 +91,12 @@ bot.command('reset', (ctx) => {
 });
 
 /**
- * Zajednička obrada — prosleđuje tekst (otkucan ili transkribovan) Claude agentu.
+ * Zajednička obrada — prosleđuje sadržaj (tekst, transkript ili sliku) Claude
+ * agentu. `userContent` je string (tekst) ili niz content blokova (npr. slika).
  */
-async function respondTo(ctx, chatId, userText) {
+async function respondTo(ctx, chatId, userContent) {
   // Ne diramo sačuvano stanje dok poziv ne uspe — radimo nad kopijom.
-  const history = [...getHistory(chatId), { role: 'user', content: userText }];
+  const history = [...getHistory(chatId), { role: 'user', content: userContent }];
 
   // "kuca..." indikator dok Claude radi.
   const typing = setInterval(() => ctx.sendChatAction('typing').catch(() => {}), 4000);
@@ -141,6 +155,86 @@ bot.on('voice', async (ctx) => {
     logger.error('Greška pri obradi glasovne:', err);
     await ctx.reply('Nisam uspeo da obradim glasovnu poruku. Pokušaj ponovo.');
   }
+});
+
+// Podrazumevani nalog kada slika stigne bez opisa.
+const DEFAULT_IMAGE_PROMPT =
+  'Pogledaj ovu sliku i ukratko opiši šta je na njoj. Ako je račun, faktura ili ' +
+  'dokument, izdvoj ključne podatke (iznos, datum, firmu, stavke) u pregledan spisak.';
+
+// Anthropic preporučuje slike do ~5 MB.
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+// Tipovi slika koje Claude vision podržava.
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+
+/**
+ * Preuzima sliku sa Telegrama i šalje je Claude-u (vision) kao content blok,
+ * uz opis (caption) ili podrazumevani nalog. Radi za slike poslate kao "photo"
+ * (kompresovane) i kao "document" sa image/* tipom.
+ */
+async function handleImage(ctx, chatId, { fileId, mediaType = 'image/jpeg', caption }) {
+  ctx.sendChatAction('typing').catch(() => {});
+  try {
+    const link = await ctx.telegram.getFileLink(fileId);
+    const bytes = Buffer.from(await (await fetch(link.href)).arrayBuffer());
+
+    if (bytes.length > MAX_IMAGE_BYTES) {
+      await ctx.reply('Slika je prevelika (max ~5 MB). Pošalji je kompresovanu ili manju.');
+      return;
+    }
+
+    const content = [
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: bytes.toString('base64') },
+      },
+      { type: 'text', text: caption?.trim() || DEFAULT_IMAGE_PROMPT },
+    ];
+
+    logger.info(`Slika od vlasnika (${mediaType}, ${bytes.length} B)${caption ? ` — "${caption}"` : ''}`);
+    await respondTo(ctx, chatId, content);
+  } catch (err) {
+    logger.error('Greška pri obradi slike:', err);
+    await ctx.reply('Nisam uspeo da obradim sliku. Pokušaj ponovo.');
+  }
+}
+
+// Fotografije (kompresovane) — biramo najveću veličinu.
+bot.on('photo', async (ctx) => {
+  const chatId = ctx.chat.id;
+  if (!isOwner(chatId)) return;
+  const sizes = ctx.message.photo;
+  const largest = sizes[sizes.length - 1];
+  await handleImage(ctx, chatId, {
+    fileId: largest.file_id,
+    mediaType: 'image/jpeg',
+    caption: ctx.message.caption,
+  });
+});
+
+// Slike poslate kao fajl (nekompresovane) — samo image/* tipovi.
+bot.on('document', async (ctx) => {
+  const chatId = ctx.chat.id;
+  if (!isOwner(chatId)) return;
+  const doc = ctx.message.document;
+  const mt = doc.mime_type || '';
+  if (!mt.startsWith('image/')) {
+    await ctx.reply('Za sada umem da čitam samo slike (foto). Ovaj tip fajla još ne obrađujem.');
+    return;
+  }
+  if (!SUPPORTED_IMAGE_TYPES.has(mt)) {
+    await ctx.reply(
+      `Format ${mt} nije podržan. Pošalji sliku kao JPEG, PNG, GIF ili WebP ` +
+        '(ili je jednostavno pošalji kao foto).',
+    );
+    return;
+  }
+  await handleImage(ctx, chatId, {
+    fileId: doc.file_id,
+    mediaType: mt,
+    caption: ctx.message.caption,
+  });
 });
 
 /**

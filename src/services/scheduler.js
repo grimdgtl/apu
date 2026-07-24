@@ -6,6 +6,7 @@ import { generateText } from './claude.js';
 import * as calendar from './calendar.js';
 import * as notion from './notion.js';
 import { checkAllSites, formatReport } from './monitor.js';
+import { getForecastLine } from './weather.js';
 
 /**
  * Scheduler — proaktivni podsetnici preko cron izraza.
@@ -47,6 +48,11 @@ async function morningBriefing() {
   try {
     const parts = [];
 
+    if (featureEnabled.weather) {
+      const weather = await getForecastLine();
+      if (weather) parts.push(`Vremenska prognoza za danas:\n${weather}`);
+    }
+
     if (featureEnabled.calendar) {
       const start = new Date();
       start.setHours(0, 0, 0, 0);
@@ -74,7 +80,8 @@ async function morningBriefing() {
 
     const text = await generateText(
       `Napravi kratak, prijateljski jutarnji pregled dana na srpskom na osnovu ovih podataka. ` +
-        `Istakni sastanke po vremenu i najvažnije zadatke. Budi konkretan i sažet.\n\n${raw}`,
+        `Ako ima prognoze, počni jednom rečenicom o vremenu. Zatim istakni sastanke po vremenu ` +
+        `i najvažnije zadatke. Budi konkretan i sažet.\n\n${raw}`,
     );
 
     await sendMessage(`☀️ Dobro jutro! Evo pregleda za danas:\n\n${text}`);

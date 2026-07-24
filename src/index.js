@@ -20,6 +20,8 @@ async function main() {
     drive: featureEnabled.drive,
     mail: featureEnabled.mail,
     glasovne: featureEnabled.voice,
+    monitoringSajtova: featureEnabled.siteMonitor,
+    izvestaji: featureEnabled.reports,
   });
 
   startScheduler();
