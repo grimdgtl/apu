@@ -1,5 +1,6 @@
 import * as notion from '../services/notion.js';
 import * as calendar from '../services/calendar.js';
+import * as drive from '../services/drive.js';
 import * as mail from '../services/mail.js';
 import { logger } from '../logger.js';
 
@@ -14,7 +15,13 @@ const handlers = {
   notion_list_tasks: (input) => notion.listTasks(input),
   notion_update_task_status: (input) => notion.updateTaskStatus(input),
   notion_add_knowledge: (input) => notion.addKnowledge(input),
+  notion_read_page: (input) => notion.readPage(input),
   notion_search: (input) => notion.search(input),
+
+  // Google Drive
+  drive_search: (input) => drive.searchFiles(input),
+  drive_read: (input) => drive.readFile(input),
+  drive_create: (input) => drive.createDoc(input),
 
   // Calendar
   calendar_list_events: (input) => calendar.listEvents(input),

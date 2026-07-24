@@ -14,7 +14,10 @@ import 'dotenv/config';
  * GOOGLE_REDIRECT_URI (podrazumevano http://localhost:3000/oauth2callback).
  */
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/drive',
+];
 
 const clientId = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;

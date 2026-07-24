@@ -17,6 +17,7 @@ async function main() {
     notionZadaci: featureEnabled.notionTasks,
     notionKb: featureEnabled.notionKb,
     calendar: featureEnabled.calendar,
+    drive: featureEnabled.drive,
     mail: featureEnabled.mail,
     glasovne: featureEnabled.voice,
   });

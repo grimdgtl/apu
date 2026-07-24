@@ -97,6 +97,10 @@ export const featureEnabled = {
   calendar: Boolean(
     config.google.clientId && config.google.clientSecret && config.google.refreshToken,
   ),
+  // Drive deli isti OAuth nalog kao kalendar; traži i Drive scope u tokenu.
+  drive: Boolean(
+    config.google.clientId && config.google.clientSecret && config.google.refreshToken,
+  ),
   mail: Boolean(config.mail.imap.user && config.mail.imap.password),
   voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
 };

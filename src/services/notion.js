@@ -127,6 +127,28 @@ export async function addKnowledge({ title, content = '' }) {
   return { id: page.id, url: page.url, title };
 }
 
+// ------------------------------------------------------------- čitanje ---
+
+/**
+ * Čita tekstualni sadržaj Notion stranice (blokove) kao običan tekst.
+ * Koristi se npr. za izvoz beleške u Google Drive.
+ */
+export async function readPage({ pageId }) {
+  const notion = getClient();
+  const res = await notion.blocks.children.list({ block_id: pageId, page_size: 100 });
+
+  const lines = [];
+  for (const b of res.results) {
+    const rich = b[b.type]?.rich_text;
+    if (Array.isArray(rich) && rich.length) {
+      lines.push(rich.map((r) => r.plain_text).join(''));
+    }
+  }
+
+  logger.debug(`Notion readPage ${pageId}: ${lines.length} blokova`);
+  return { id: pageId, text: lines.join('\n') };
+}
+
 // --------------------------------------------------------------- pretraga ---
 
 /**

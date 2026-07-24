@@ -88,6 +88,22 @@ const definitions = [
     },
   },
 
+  // ---------- Notion: čitanje stranice ----------
+  {
+    feature: 'notionSearch',
+    name: 'notion_read_page',
+    description:
+      'Čita tekstualni sadržaj Notion stranice. Prvo nađi ID stranice preko ' +
+      'notion_search. Koristi npr. kad korisnik traži da se beleška izveze u Drive.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        pageId: { type: 'string', description: 'ID Notion stranice (iz notion_search).' },
+      },
+      required: ['pageId'],
+    },
+  },
+
   // ---------- Notion: pretraga ----------
   {
     feature: 'notionSearch',
@@ -102,6 +118,52 @@ const definitions = [
         limit: { type: 'number', description: 'Maksimalan broj rezultata (default 10).' },
       },
       required: ['query'],
+    },
+  },
+
+  // ---------- Google Drive ----------
+  {
+    feature: 'drive',
+    name: 'drive_search',
+    description:
+      'Pretražuje Google Drive po imenu i sadržaju fajla. Koristi za "nađi mi dokument X".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Tekst za pretragu.' },
+        limit: { type: 'number', description: 'Maksimalan broj rezultata (default 10).' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    feature: 'drive',
+    name: 'drive_read',
+    description:
+      'Čita sadržaj fajla sa Drive-a kao tekst (Google Docs, Sheets kao CSV, tekstualni ' +
+      'fajlovi). Prvo nađi ID preko drive_search. Za slanje sadržaja u Notion, kombinuj sa ' +
+      'notion_add_knowledge.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        fileId: { type: 'string', description: 'ID fajla (iz drive_search).' },
+      },
+      required: ['fileId'],
+    },
+  },
+  {
+    feature: 'drive',
+    name: 'drive_create',
+    description:
+      'Kreira novi Google Doc sa zadatim tekstom na Drive-u. Koristi npr. za "sačuvaj ovo kao ' +
+      'dokument" ili za izvoz Notion beleške (prvo notion_read_page, pa drive_create).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Naziv dokumenta.' },
+        content: { type: 'string', description: 'Tekstualni sadržaj dokumenta.' },
+      },
+      required: ['name', 'content'],
     },
   },
 
