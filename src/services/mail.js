@@ -64,9 +64,53 @@ export async function listUnread({ limit = 10 } = {}) {
 }
 
 /**
- * Šalje mejl preko SMTP-a.
+ * Šalje mejl. Ako je podešen RESEND_API_KEY — šalje preko Resend API-ja
+ * (HTTPS, zaobilazi blokirane SMTP portove); inače preko klasičnog SMTP-a.
+ * From adresa je u oba slučaja tvoja (config.mail.from).
  */
 export async function sendMail({ to, subject, body, cc, inReplyTo }) {
+  const fromAddress = config.mail.from.address || config.mail.smtp.user;
+  const from = config.mail.from.name
+    ? `${config.mail.from.name} <${fromAddress}>`
+    : fromAddress;
+
+  if (config.mail.resendApiKey) {
+    return sendViaResend({ from, to, subject, body, cc, inReplyTo });
+  }
+  return sendViaSmtp({ from, to, subject, body, cc, inReplyTo });
+}
+
+/** Slanje preko Resend HTTP API-ja (port 443). */
+async function sendViaResend({ from, to, subject, body, cc, inReplyTo }) {
+  const payload = {
+    from,
+    to: [to],
+    subject,
+    text: body,
+    ...(cc ? { cc: [cc] } : {}),
+    ...(inReplyTo ? { headers: { 'In-Reply-To': inReplyTo, References: inReplyTo } } : {}),
+  };
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.mail.resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(20000),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`Resend greška ${res.status}: ${data?.message || JSON.stringify(data)}`);
+  }
+  logger.info(`Mail poslat preko Resend na ${to} (id: ${data.id})`);
+  return { messageId: data.id, provider: 'resend' };
+}
+
+/** Slanje preko klasičnog SMTP-a (nodemailer). */
+async function sendViaSmtp({ from, to, subject, body, cc, inReplyTo }) {
   ensureConfigured();
   const transporter = nodemailer.createTransport({
     host: config.mail.smtp.host,
@@ -78,11 +122,6 @@ export async function sendMail({ to, subject, body, cc, inReplyTo }) {
     greetingTimeout: 10000, // 10s za SMTP pozdrav
     socketTimeout: 20000, // 20s neaktivnosti
   });
-
-  const fromAddress = config.mail.from.address || config.mail.smtp.user;
-  const from = config.mail.from.name
-    ? `"${config.mail.from.name}" <${fromAddress}>`
-    : fromAddress;
 
   const info = await transporter.sendMail({
     from,

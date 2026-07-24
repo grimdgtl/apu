@@ -67,6 +67,8 @@ export const config = {
       name: optional('MAIL_FROM_NAME', ''),
       address: optional('MAIL_FROM_ADDRESS', ''),
     },
+    // Ako je postavljen, slanje ide preko Resend API-ja umesto SMTP-a.
+    resendApiKey: optional('RESEND_API_KEY'),
   },
 
   timezone: optional('TIMEZONE', 'Europe/Belgrade'),
