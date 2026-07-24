@@ -11,6 +11,23 @@ import { logger } from '../logger.js';
  * Oba imaju isti (OpenAI-kompatibilan) multipart API, razlika je samo URL/model.
  */
 
+function mimeFor(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  return (
+    {
+      ogg: 'audio/ogg',
+      oga: 'audio/ogg',
+      opus: 'audio/ogg',
+      m4a: 'audio/mp4',
+      mp4: 'audio/mp4',
+      mp3: 'audio/mpeg',
+      wav: 'audio/wav',
+      webm: 'audio/webm',
+      flac: 'audio/flac',
+    }[ext] || 'audio/ogg'
+  );
+}
+
 function pickProvider() {
   if (config.transcription.groqKey) {
     return {
@@ -39,7 +56,7 @@ export async function transcribe(audioBuffer, filename = 'voice.ogg') {
   const p = pickProvider();
 
   const form = new FormData();
-  form.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), filename);
+  form.append('file', new Blob([audioBuffer], { type: mimeFor(filename) }), filename);
   form.append('model', p.model);
   form.append('language', 'sr'); // nagoveštaj: srpski (kraće komande bolje pogađa)
 
