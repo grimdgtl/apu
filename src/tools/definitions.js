@@ -273,6 +273,21 @@ const definitions = [
       required: ['to', 'subject', 'body'],
     },
   },
+
+  // ---------- Monitoring sajtova ----------
+  {
+    feature: 'siteMonitor',
+    name: 'monitor_check_sites',
+    description:
+      'Odmah proverava da li su svi aktivni sajtovi klijenata dostupni i dovoljno brzi. ' +
+      'Lista sajtova se čita iz Notion KLIJENTI baze (samo status "Aktivan"). Koristi kada ' +
+      'korisnik pita "jesu li sajtovi OK", "proveri sajtove", "da li je nešto palo". Vraća ' +
+      'status, vreme odgovora i eventualne probleme za svaki sajt.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
 
 export const toolDefinitions = definitions;

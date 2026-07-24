@@ -39,6 +39,8 @@ export const config = {
     tasksDbId: optional('NOTION_TASKS_DB_ID'),
     // Stranica Knowledge Base — "zabeleži ovo u knowledge base".
     kbPageId: optional('NOTION_KB_PAGE_ID'),
+    // Baza KLIJENTI — izvor liste sajtova za monitoring (kolone Klijent, Domen, Aktivan).
+    clientsDbId: optional('NOTION_CLIENTS_DB_ID'),
   },
 
   google: {
@@ -79,9 +81,19 @@ export const config = {
 
   timezone: optional('TIMEZONE', 'Europe/Belgrade'),
 
+  // Monitoring sajtova — pragovi za "pao" (timeout) i "sporo".
+  monitor: {
+    timeoutMs: Number(optional('SITE_MONITOR_TIMEOUT_MS', '15000')),
+    slowMs: Number(optional('SITE_MONITOR_SLOW_MS', '5000')),
+  },
+
   cron: {
     morningBriefing: optional('MORNING_BRIEFING_CRON', '0 10 * * *'),
     taxReminder: optional('TAX_REMINDER_CRON', '0 10 14 * *'),
+    // Tiha provera sajtova (javi samo ako ima problema) — svaki dan u 10:00.
+    siteCheckSilent: optional('SITE_CHECK_SILENT_CRON', '0 10 * * *'),
+    // Pun izveštaj o sajtovima (uvek javi) — svaki dan u 18:00.
+    siteCheckReport: optional('SITE_CHECK_REPORT_CRON', '0 18 * * *'),
   },
 };
 
@@ -103,4 +115,6 @@ export const featureEnabled = {
   ),
   mail: Boolean(config.mail.imap.user && config.mail.imap.password),
   voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
+  // Monitoring sajtova traži Notion ključ i ID KLIJENTI baze.
+  siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
 };

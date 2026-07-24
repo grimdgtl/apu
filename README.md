@@ -17,8 +17,13 @@ modelu i vraća odgovor na srpskom.
 - 📅 **Google Calendar** — pregled, traženje slobodnih termina, zakazivanje
   sastanaka (lokacija, vreme, učesnici + pozivnice).
 - ✉️ **Email (IMAP/SMTP)** — čitanje nepročitanih, pravljenje draftova, slanje odgovora.
+- 🌐 **Monitoring sajtova** — dva puta dnevno proverava da li su sajtovi
+  klijenata (iz Notion **KLIJENTI** baze, status *Aktivan*) dostupni i dovoljno
+  brzi; možeš i ručno da pitaš „jesu li sajtovi OK?".
 - ⏰ **Proaktivni podsetnici**:
   - svaki dan u **10:00** — jutarnji pregled sastanaka i zadataka,
+  - svaki dan u **10:00** — tiha provera sajtova (javi samo ako nešto ne radi),
+  - svaki dan u **18:00** — pun izveštaj o stanju sajtova,
   - svakog **14. u mesecu u 10:00** — podsetnik za plaćanje poreza.
 
 ---

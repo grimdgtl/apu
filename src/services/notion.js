@@ -149,6 +149,38 @@ export async function readPage({ pageId }) {
   return { id: pageId, text: lines.join('\n') };
 }
 
+// -------------------------------------------------------- klijenti/sajtovi ---
+
+/**
+ * Čita aktivne klijente iz KLIJENTI baze i vraća one koji imaju domen.
+ *
+ * Za monitoring uzimamo samo redove sa `Aktivan` = "Aktivan" (arhiva i sajtovi
+ * u izradi se preskaču). Kolone: `Klijent` (title), `Domen` (url), `Aktivan`.
+ * Bez URL-a nema šta da se proverava, pa takve redove izostavljamo.
+ */
+export async function listActiveSites() {
+  if (!featureEnabled.siteMonitor) {
+    throw new Error('Baza klijenata nije podešena (NOTION_CLIENTS_DB_ID nedostaje).');
+  }
+
+  const res = await getClient().databases.query({
+    database_id: config.notion.clientsDbId,
+    page_size: 100,
+    filter: { property: 'Aktivan', select: { equals: 'Aktivan' } },
+  });
+
+  const sites = res.results
+    .map((p) => ({
+      id: p.id,
+      name: titleOf(p),
+      url: p.properties?.Domen?.url ?? null,
+    }))
+    .filter((s) => s.url && s.url.trim() !== '');
+
+  logger.debug(`Notion listActiveSites: ${sites.length} aktivnih sajtova`);
+  return sites;
+}
+
 // --------------------------------------------------------------- pretraga ---
 
 /**

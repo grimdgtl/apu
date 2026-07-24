@@ -5,12 +5,15 @@ import { sendMessage } from './telegram.js';
 import { generateText } from './claude.js';
 import * as calendar from './calendar.js';
 import * as notion from './notion.js';
+import { checkAllSites, formatReport } from './monitor.js';
 
 /**
  * Scheduler — proaktivni podsetnici preko cron izraza.
  *
  *   1. Jutarnji pregled — svaki dan u 10:00.
  *   2. Podsetnik za porez — 14. u mesecu u 10:00.
+ *   3. Tiha provera sajtova — svaki dan u 10:00 (javi samo ako ima problema).
+ *   4. Pun izveštaj o sajtovima — svaki dan u 18:00 (uvek javi).
  *
  * Cron izrazi i vremenska zona dolaze iz config-a.
  */
@@ -23,6 +26,17 @@ export function startScheduler() {
 
   cron.schedule(config.cron.taxReminder, taxReminder, options);
   logger.info(`Zakazan podsetnik za porez: "${config.cron.taxReminder}" (${config.timezone})`);
+
+  if (featureEnabled.siteMonitor) {
+    cron.schedule(config.cron.siteCheckSilent, () => siteCheck(false), options);
+    cron.schedule(config.cron.siteCheckReport, () => siteCheck(true), options);
+    logger.info(
+      `Zakazan monitoring sajtova: tiho "${config.cron.siteCheckSilent}", ` +
+        `izveštaj "${config.cron.siteCheckReport}" (${config.timezone})`,
+    );
+  } else {
+    logger.info('Monitoring sajtova preskočen (NOTION_CLIENTS_DB_ID nije podešen).');
+  }
 }
 
 /**
@@ -69,6 +83,31 @@ async function morningBriefing() {
     await sendMessage('☀️ Dobro jutro! (Nisam uspeo da povučem sve podatke za pregled.)').catch(
       () => {},
     );
+  }
+}
+
+/**
+ * Provera dostupnosti sajtova klijenata.
+ *
+ * @param {boolean} full - true = pun izveštaj (18:00, uvek šalje),
+ *                         false = tiho (10:00, šalje samo ako ima problema).
+ */
+async function siteCheck(full) {
+  logger.info(`Pokrećem proveru sajtova (${full ? 'pun izveštaj' : 'tiho'})...`);
+  try {
+    const data = await checkAllSites();
+    const message = formatReport(data, full);
+    if (message) {
+      await sendMessage(message);
+    } else {
+      logger.info('Monitoring: svi sajtovi OK — tihi režim, ne šaljem poruku.');
+    }
+  } catch (err) {
+    logger.error('Greška u proveri sajtova:', err);
+    // I u tihom režimu javljamo grešku samog monitoringa — inače bi tiho zakazao.
+    await sendMessage(
+      '🌐 Nisam uspeo da proverim sajtove (greška u monitoringu ili Notion bazi).',
+    ).catch(() => {});
   }
 }
 

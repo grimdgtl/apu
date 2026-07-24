@@ -2,6 +2,7 @@ import * as notion from '../services/notion.js';
 import * as calendar from '../services/calendar.js';
 import * as drive from '../services/drive.js';
 import * as mail from '../services/mail.js';
+import { checkAllSites } from '../services/monitor.js';
 import { logger } from '../logger.js';
 
 /**
@@ -32,6 +33,9 @@ const handlers = {
   mail_list_unread: (input) => mail.listUnread(input),
   mail_save_draft: (input) => mail.saveDraft(input),
   mail_send: (input) => mail.sendMail(input),
+
+  // Monitoring sajtova
+  monitor_check_sites: () => checkAllSites(),
 };
 
 /**
