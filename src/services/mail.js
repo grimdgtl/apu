@@ -73,6 +73,10 @@ export async function sendMail({ to, subject, body, cc, inReplyTo }) {
     port: config.mail.smtp.port,
     secure: config.mail.smtp.secure,
     auth: { user: config.mail.smtp.user, pass: config.mail.smtp.password },
+    // Bolje brza greška nego da handler visi (npr. ako provajder blokira SMTP port).
+    connectionTimeout: 15000, // 15s za TCP konekciju
+    greetingTimeout: 10000, // 10s za SMTP pozdrav
+    socketTimeout: 20000, // 20s neaktivnosti
   });
 
   const fromAddress = config.mail.from.address || config.mail.smtp.user;

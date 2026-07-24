@@ -13,7 +13,18 @@ import { loadHistories, saveHistories } from '../store.js';
  * - Izlaže `sendMessage` da scheduler može proaktivno da šalje poruke.
  */
 
-export const bot = new Telegraf(config.telegram.token);
+export const bot = new Telegraf(config.telegram.token, {
+  // Agentski tok (Claude + alati) sme da traje; ne sečemo ga na 90s.
+  handlerTimeout: 300_000, // 5 min
+});
+
+// KLJUČNO: hvatamo sve greške obrade da NE sruše proces.
+// Bez ovoga Telegraf rethrow-uje grešku, launch pukne, kontejner se restartuje
+// i ista poruka se obrađuje iznova — beskonačna petlja (i duplo slanje mejla).
+bot.catch((err, ctx) => {
+  logger.error('Telegraf greška (uhvaćena, bot nastavlja):', err?.message || err);
+  ctx?.reply?.('Ups, došlo je do greške pri obradi. Pokušaj ponovo.').catch(() => {});
+});
 
 // Istorija razgovora po chatId — učitana sa diska, pa preživi restart.
 const histories = loadHistories();
