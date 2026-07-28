@@ -125,6 +125,8 @@ export const config = {
     weeklySummary: optional('WEEKLY_SUMMARY_CRON', '0 22 * * 0'),
     // Nedeljni zadatak "cveće za Sofiju" — ponedeljkom u 5:00.
     flowersTask: optional('FLOWERS_TASK_CRON', '0 5 * * 1'),
+    // Osvežavanje indeksa za semantičku pretragu — svaki dan u 4:00 (pre pripreme dana).
+    semanticIndex: optional('SEMANTIC_INDEX_CRON', '0 4 * * *'),
   },
 };
 
@@ -154,6 +156,10 @@ export const featureEnabled = {
   todo: Boolean(config.notion.apiKey && config.notion.todoDbId),
   // Trajno pamćenje činjenica — lokalni fajl, bez ikakvog ključa.
   memory: true,
+  // Semantička pretraga traži OpenAI ključ (embeddings) i bar jedan izvor.
+  semantic: Boolean(
+    config.transcription.openaiKey && (config.notion.apiKey || config.google.refreshToken),
+  ),
   // Vremenska prognoza (Open-Meteo) ne traži ključ — uvek dostupna.
   weather: true,
   // Generisanje izveštaja u Google Doc traži Drive (isti OAuth kao kalendar).

@@ -28,6 +28,7 @@ async function main() {
     dnevnik: 'dnevnik',
     todo: 'todoLista',
     memory: 'pamcenje',
+    semantic: 'semantickaPretraga',
     weather: 'prognoza',
     reports: 'izvestaji',
   };

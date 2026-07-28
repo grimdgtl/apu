@@ -194,6 +194,36 @@ const definitions = [
     },
   },
 
+  // ---------- Semantička pretraga ----------
+  {
+    feature: 'semantic',
+    name: 'semantic_search',
+    description:
+      'Pretraga po ZNAČENJU kroz korisnikov Notion i Google Drive. Za razliku od ' +
+      'notion_search i drive_search (koji traže doslovnu reč), ovo nalazi i kad se ' +
+      'formulacija ne poklapa — npr. "šta sam pisao o onom klijentu u proleće". ' +
+      'Koristi kada obična pretraga ne nađe ništa ili kada je upit opisan a ne tačan. ' +
+      'Rezultati imaju "ocena" (0-1) — ispod ~0.3 su slabo povezani, ne predstavljaj ih ' +
+      'kao pogodak.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        upit: { type: 'string', description: 'Šta tražiš, svojim rečima.' },
+        limit: { type: 'number', description: 'Broj rezultata (default 5).' },
+      },
+      required: ['upit'],
+    },
+  },
+  {
+    feature: 'semantic',
+    name: 'semantic_reindex',
+    description:
+      'Osvežava indeks za semantičku pretragu (čita Notion i Drive). Traje nekoliko ' +
+      'sekundi. Bot ovo radi sam jednom dnevno — pozovi samo ako korisnik izričito traži ' +
+      'ili ako pretraga ne nalazi nešto što je tek dodato.',
+    input_schema: { type: 'object', properties: {} },
+  },
+
   // ---------- Uptime istorija ----------
   {
     feature: 'siteMonitor',

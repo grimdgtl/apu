@@ -13,6 +13,7 @@ import * as dnevnik from './dnevnik.js';
 import * as todo from './todo.js';
 import { loadState, saveState } from '../store.js';
 import * as jobs from './jobs.js';
+import * as semantic from './semantic.js';
 
 /**
  * Scheduler — proaktivni podsetnici preko cron izraza.
@@ -67,6 +68,17 @@ export function startScheduler() {
     );
   } else {
     logger.info('Dnevna checklista preskočena (NOTION_CHECKLIST_DB_ID nije podešen).');
+  }
+
+  if (featureEnabled.semantic) {
+    cron.schedule(
+      config.cron.semanticIndex,
+      () => jobs.pokreni('indeksiranje pretrage', semantic.indeksiraj),
+      options,
+    );
+    logger.info(`Zakazano indeksiranje pretrage: "${config.cron.semanticIndex}" (${config.timezone})`);
+  } else {
+    logger.info('Semantička pretraga preskočena (OPENAI_API_KEY nije podešen).');
   }
 
   if (featureEnabled.todo) {
