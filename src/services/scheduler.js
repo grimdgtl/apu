@@ -12,6 +12,7 @@ import * as checklist from './checklist.js';
 import * as dnevnik from './dnevnik.js';
 import * as todo from './todo.js';
 import { loadState, saveState } from '../store.js';
+import * as jobs from './jobs.js';
 
 /**
  * Scheduler — proaktivni podsetnici preko cron izraza.
@@ -27,18 +28,18 @@ import { loadState, saveState } from '../store.js';
 export function startScheduler() {
   const options = { timezone: config.timezone };
 
-  cron.schedule(config.cron.morningGreeting, jutarnjiPozdrav, options);
+  cron.schedule(config.cron.morningGreeting, () => jobs.pokreni('jutarnji pozdrav', jutarnjiPozdrav), options);
   logger.info(`Zakazan jutarnji pozdrav: "${config.cron.morningGreeting}" (${config.timezone})`);
 
-  cron.schedule(config.cron.morningBriefing, morningBriefing, options);
+  cron.schedule(config.cron.morningBriefing, () => jobs.pokreni('poslovni pregled', morningBriefing), options);
   logger.info(`Zakazan poslovni pregled: "${config.cron.morningBriefing}" (${config.timezone})`);
 
-  cron.schedule(config.cron.taxReminder, taxReminder, options);
+  cron.schedule(config.cron.taxReminder, () => jobs.pokreni('podsetnik za porez', taxReminder), options);
   logger.info(`Zakazan podsetnik za porez: "${config.cron.taxReminder}" (${config.timezone})`);
 
   if (featureEnabled.siteMonitor) {
-    cron.schedule(config.cron.siteCheckSilent, () => siteCheck(false), options);
-    cron.schedule(config.cron.siteCheckReport, () => siteCheck(true), options);
+    cron.schedule(config.cron.siteCheckSilent, () => jobs.pokreni('provera sajtova (tiho)', () => siteCheck(false)), options);
+    cron.schedule(config.cron.siteCheckReport, () => jobs.pokreni('izvestaj o sajtovima', () => siteCheck(true)), options);
     logger.info(
       `Zakazan monitoring sajtova: tiho "${config.cron.siteCheckSilent}", ` +
         `izveštaj "${config.cron.siteCheckReport}" (${config.timezone})`,
@@ -48,17 +49,17 @@ export function startScheduler() {
   }
 
   if (featureEnabled.mail) {
-    cron.schedule(config.cron.mailCheck, mailCheck, options);
+    cron.schedule(config.cron.mailCheck, () => jobs.pokreni('provera mejlova', mailCheck), options);
     logger.info(`Zakazana provera mejlova: "${config.cron.mailCheck}" (${config.timezone})`);
   } else {
     logger.info('Provera mejlova preskočena (IMAP nije podešen).');
   }
 
   if (featureEnabled.checklist) {
-    cron.schedule(config.cron.checklistCreate, noviDan, options);
-    cron.schedule(config.cron.checklistReminder, checklistPodsetnik, options);
-    cron.schedule(config.cron.checklistPraise, checklistCestitka, options);
-    cron.schedule(config.cron.weeklySummary, nedeljnaPohvala, options);
+    cron.schedule(config.cron.checklistCreate, () => jobs.pokreni('priprema dana', noviDan), options);
+    cron.schedule(config.cron.checklistReminder, () => jobs.pokreni('vecernji podsetnik', checklistPodsetnik), options);
+    cron.schedule(config.cron.checklistPraise, () => jobs.pokreni('cestitka', checklistCestitka), options);
+    cron.schedule(config.cron.weeklySummary, () => jobs.pokreni('nedeljna pohvala', nedeljnaPohvala), options);
     logger.info(
       `Zakazana checklista: nov dan "${config.cron.checklistCreate}", ` +
         `podsetnik "${config.cron.checklistReminder}", čestitka "${config.cron.checklistPraise}", ` +
@@ -69,7 +70,7 @@ export function startScheduler() {
   }
 
   if (featureEnabled.todo) {
-    cron.schedule(config.cron.flowersTask, cveceZadatak, options);
+    cron.schedule(config.cron.flowersTask, () => jobs.pokreni('nedeljni zadatak (cvece)', cveceZadatak), options);
     logger.info(`Zakazan nedeljni zadatak (cveće): "${config.cron.flowersTask}" (${config.timezone})`);
   } else {
     logger.info('To-do lista preskočena (NOTION_TODO_DB_ID nije podešen).');
@@ -98,6 +99,7 @@ async function jutarnjiPozdrav() {
     logger.info('Jutarnji pozdrav poslat.');
   } catch (err) {
     logger.error('Greška pri slanju jutarnjeg pozdrava:', err.message);
+    throw err; // propusti dalje da retry i evidencija poslova vide pad
   }
 }
 
@@ -124,6 +126,7 @@ async function noviDan() {
     }
   } catch (err) {
     logger.error('Greška pri pripremi novog dana:', err.message);
+    throw err;
   }
 }
 
@@ -143,6 +146,7 @@ async function cveceZadatak() {
     );
   } catch (err) {
     logger.error('Greška pri kreiranju zadatka za cveće:', err.message);
+    throw err;
   }
 }
 
@@ -168,6 +172,7 @@ async function checklistCestitka() {
     logger.info(`Čestitka poslata — ${procenat}%.`);
   } catch (err) {
     logger.error('Greška pri slanju čestitke:', err.message);
+    throw err;
   }
 }
 
@@ -196,6 +201,7 @@ async function nedeljnaPohvala() {
     logger.info(`Nedeljna pohvala poslata (${r.procenat}%, teretana ${t.bilo}/${t.cilj}).`);
   } catch (err) {
     logger.error('Greška pri slanju nedeljne pohvale:', err.message);
+    throw err;
   }
 }
 
@@ -266,6 +272,7 @@ async function checklistPodsetnik() {
     );
   } catch (err) {
     logger.error('Greška pri slanju podsetnika za checklistu:', err.message);
+    throw err;
   }
 }
 
@@ -302,8 +309,9 @@ async function mailCheck() {
     await sendMessage(`📬 ${naslov}\n\n${lines.join('\n')}${ostatak}`);
     logger.info(`Provera mejlova: javljeno o ${fresh.length} novih mejlova.`);
   } catch (err) {
-    // Ne diži buku svakog sata ako IMAP zezne — samo loguj.
+    // Ne diži buku svakog sata ako IMAP zezne — loguj i propusti da retry proba ponovo.
     logger.error('Greška pri proveri mejlova:', err.message);
+    throw err;
   }
 }
 
@@ -369,10 +377,8 @@ async function morningBriefing() {
       `💼 Hej, sad kad si obavio sve jutarnje rituale — prelazimo na posao.\n\n${text}`,
     );
   } catch (err) {
-    logger.error('Greška u jutarnjem pregledu:', err);
-    await sendMessage('☀️ Dobro jutro! (Nisam uspeo da povučem sve podatke za pregled.)').catch(
-      () => {},
-    );
+    logger.error('Greška u poslovnom pregledu:', err);
+    throw err; // jobs.pokreni ponavlja, pa javi tek ako svi pokušaji padnu
   }
 }
 
