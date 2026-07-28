@@ -53,6 +53,7 @@ bira koje alate da pozove i izvrši radnju.
 | **Google Drive** | `drive_search`, `drive_read`, `drive_create` |
 | **Google Calendar** | `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_event` |
 | **Mejl** | `mail_list_unread`, `mail_save_draft`, `mail_send` |
+| **Dnevna checklista** | `checklist_get`, `checklist_mark`, `checklist_create_day` |
 | **Prognoza** | `weather_get` |
 | **Monitoring sajtova** | `monitor_check_sites` |
 | **Izveštaji** | `generate_report` (piše izveštaj u Google Doc) |
@@ -179,6 +180,7 @@ Ne treba ključ (Open-Meteo). Podesi lokaciju: `WEATHER_LOCATION`, `WEATHER_LAT`
 | `NOTION_TASKS_DB_ID` | | — | Baza zadataka |
 | `NOTION_KB_PAGE_ID` | | — | Stranica Knowledge Base |
 | `NOTION_CLIENTS_DB_ID` | | — | Baza KLIJENTI (monitoring) |
+| `NOTION_CHECKLIST_DB_ID` | | — | Baza Dnevna checklista (Life) |
 | `GOOGLE_CLIENT_ID` | | — | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | | — | OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | | `http://localhost:3000/oauth2callback` | Za auth skriptu |
@@ -202,6 +204,8 @@ Ne treba ključ (Open-Meteo). Podesi lokaciju: `WEATHER_LOCATION`, `WEATHER_LAT`
 | `SITE_CHECK_SILENT_CRON` | | `0 10 * * *` | Tiha provera sajtova |
 | `SITE_CHECK_REPORT_CRON` | | `0 18 * * *` | Pun izveštaj o sajtovima |
 | `MAIL_CHECK_CRON` | | `0 8-22 * * *` | Provera nepročitanih mejlova |
+| `CHECKLIST_CREATE_CRON` | | `0 5 * * *` | Kreiranje reda u checklisti |
+| `CHECKLIST_REMINDER_CRON` | | `30 21 * * *` | Podsetnik za checklistu |
 | `DATA_DIR` | | `./data` | Gde se čuva istorija razgovora |
 
 > **`TIMEZONE` ≠ lokacija prognoze.** `TIMEZONE` je vremenska zona (ista za celu Srbiju),
@@ -270,6 +274,10 @@ Sve ostalo pišeš prirodno:
 „Dodaj u knowledge base: Printful — dropshipping."
 „Nađi mi na Drive-u pripremu za epizodu."
 „Sačuvaj taj dokument u Notion knowledge base." → most Drive → Notion
+„Popio sam kreatin i bio u teretani."      → čekira stavke u checklisti
+„Nisam pio kokakolu ni pušio."             → čekira „Bez Coca-Cole" i „Bez pušenja"
+„Šta mi fali danas na checklisti?"
+„Koliko sam puta ove nedelje bio u teretani?"
 „Kakvo je vreme?"
 „Proveri da li rade sajtovi klijenata."
 ```
@@ -284,6 +292,8 @@ Sve ostalo pišeš prirodno:
 | **Svaki sat, 8–22** | Provera nepročitanih mejlova — javlja **samo o novima** |
 | Svaki dan **10:00** | Tiha provera sajtova — javlja **samo ako ima problema** |
 | Svaki dan **18:00** | Pun izveštaj o dostupnosti sajtova |
+| Svaki dan **5:00** | Kreira nov red u dnevnoj checklisti (datum + dan u nedelji) |
+| Svaki dan **21:30** | Podsetnik da popuniš checklistu + napredak teretane (cilj 3×/nedelji) |
 | **14.** u mesecu, 10:00 | Podsetnik za plaćanje poreza |
 
 > **Provera mejlova ne spamuje.** Bot pamti (na disku) o kojim je mejlovima već javio,

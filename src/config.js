@@ -41,6 +41,8 @@ export const config = {
     kbPageId: optional('NOTION_KB_PAGE_ID'),
     // Baza KLIJENTI — izvor liste sajtova za monitoring (kolone Klijent, Domen, Aktivan).
     clientsDbId: optional('NOTION_CLIENTS_DB_ID'),
+    // Dnevna checklista (Life stranica) — navike po danu.
+    checklistDbId: optional('NOTION_CHECKLIST_DB_ID'),
   },
 
   google: {
@@ -103,6 +105,10 @@ export const config = {
     siteCheckReport: optional('SITE_CHECK_REPORT_CRON', '0 18 * * *'),
     // Provera nepročitanih mejlova — svaki pun sat od 8 do 22 (ne budi noću).
     mailCheck: optional('MAIL_CHECK_CRON', '0 8-22 * * *'),
+    // Kreiranje reda u dnevnoj checklisti — svako jutro u 5:00.
+    checklistCreate: optional('CHECKLIST_CREATE_CRON', '0 5 * * *'),
+    // Podsetnik da popuniš checklistu — svako veče u 21:30.
+    checklistReminder: optional('CHECKLIST_REMINDER_CRON', '30 21 * * *'),
   },
 };
 
@@ -126,6 +132,8 @@ export const featureEnabled = {
   voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
   // Monitoring sajtova traži Notion ključ i ID KLIJENTI baze.
   siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
+  // Dnevna checklista traži Notion ključ i ID te baze.
+  checklist: Boolean(config.notion.apiKey && config.notion.checklistDbId),
   // Vremenska prognoza (Open-Meteo) ne traži ključ — uvek dostupna.
   weather: true,
   // Generisanje izveštaja u Google Doc traži Drive (isti OAuth kao kalendar).

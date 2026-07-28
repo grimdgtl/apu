@@ -4,6 +4,7 @@ import * as drive from '../services/drive.js';
 import * as mail from '../services/mail.js';
 import { checkAllSites } from '../services/monitor.js';
 import { getForecast } from '../services/weather.js';
+import * as checklist from '../services/checklist.js';
 import { generateReport } from '../services/reports.js';
 import { logger } from '../logger.js';
 
@@ -20,6 +21,11 @@ const handlers = {
   notion_add_knowledge: (input) => notion.addKnowledge(input),
   notion_read_page: (input) => notion.readPage(input),
   notion_search: (input) => notion.search(input),
+
+  // Dnevna checklista
+  checklist_get: (input) => checklist.stanje(input.datum),
+  checklist_mark: (input) => checklist.oznaci(input),
+  checklist_create_day: (input) => checklist.kreirajRed(input.datum),
 
   // Google Drive
   drive_search: (input) => drive.searchFiles(input),

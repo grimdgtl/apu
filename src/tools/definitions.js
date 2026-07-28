@@ -121,6 +121,63 @@ const definitions = [
     },
   },
 
+  // ---------- Dnevna checklista ----------
+  {
+    feature: 'checklist',
+    name: 'checklist_get',
+    description:
+      'Čita dnevnu checklistu navika za dati datum (podrazumevano danas): koje su stavke ' +
+      'označene, koje fale, skor, i koliko je puta ove nedelje bio u teretani (cilj: min 3). ' +
+      'Koristi za "šta mi fali danas", "koliko sam puta bio u teretani".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+    },
+  },
+  {
+    feature: 'checklist',
+    name: 'checklist_mark',
+    description:
+      'Označava (ili skida oznaku) stavke u dnevnoj checklisti. Ako red za taj dan ne postoji, ' +
+      'automatski ga kreira.\n' +
+      'Dozvoljena imena stavki su TAČNO ova:\n' +
+      'Ustajanje 6:00, Teretana 7:00, Kreatin, Doručak, Vitamin D3 i K2, Tuširanje i C serum, ' +
+      'Večera 19:00, Magnezijum, Bez Coca-Cole, Bez gazirane vode, Bez alkohola, Bez pušenja, ' +
+      'Bez slatkog, Bez igrica, Bez telefona posle 22:00.\n' +
+      'VAŽNO — stavke koje počinju sa "Bez " su OBRNUTE: true znači da je uspešno IZBEGAO tu ' +
+      'stvar. Primeri: "popio sam kreatin" → {"Kreatin": true}; "nisam pio koka-kolu" → ' +
+      '{"Bez Coca-Cole": true}; "pušio sam danas" → {"Bez pušenja": false}; "bio sam u teretani" ' +
+      '→ {"Teretana 7:00": true}; "jeo sam slatko" → {"Bez slatkog": false}.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        stavke: {
+          type: 'object',
+          description:
+            'Mapa { "Naziv stavke": true/false }. Koristi isključivo nazive iz opisa alata.',
+        },
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+      required: ['stavke'],
+    },
+  },
+  {
+    feature: 'checklist',
+    name: 'checklist_create_day',
+    description:
+      'Kreira nov red u dnevnoj checklisti za dati datum (naslov = ime dana u nedelji). ' +
+      'Ako red već postoji, ne pravi duplikat. Bot ovo radi automatski svako jutro u 5:00 — ' +
+      'koristi alat samo ako korisnik izričito traži.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+    },
+  },
+
   // ---------- Google Drive ----------
   {
     feature: 'drive',

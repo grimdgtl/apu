@@ -8,6 +8,7 @@ import * as notion from './notion.js';
 import { checkAllSites, formatReport } from './monitor.js';
 import { getForecastLine } from './weather.js';
 import * as mail from './mail.js';
+import * as checklist from './checklist.js';
 import { loadState, saveState } from '../store.js';
 
 /**
@@ -46,6 +47,73 @@ export function startScheduler() {
     logger.info(`Zakazana provera mejlova: "${config.cron.mailCheck}" (${config.timezone})`);
   } else {
     logger.info('Provera mejlova preskočena (IMAP nije podešen).');
+  }
+
+  if (featureEnabled.checklist) {
+    cron.schedule(config.cron.checklistCreate, checklistNoviDan, options);
+    cron.schedule(config.cron.checklistReminder, checklistPodsetnik, options);
+    logger.info(
+      `Zakazana checklista: nov red "${config.cron.checklistCreate}", ` +
+        `podsetnik "${config.cron.checklistReminder}" (${config.timezone})`,
+    );
+  } else {
+    logger.info('Dnevna checklista preskočena (NOTION_CHECKLIST_DB_ID nije podešen).');
+  }
+}
+
+/**
+ * Svako jutro u 5:00 — napravi red za današnji dan (ako već ne postoji).
+ * Tih je: ne šalje poruku, samo priprema tabelu za popunjavanje.
+ */
+async function checklistNoviDan() {
+  try {
+    const red = await checklist.kreirajRed();
+    if (red.većPostojao) {
+      logger.info(`Checklista: red za ${red.datum} je već postojao.`);
+    } else {
+      logger.info(`Checklista: napravljen red za ${red.datum} (${red.dan}).`);
+    }
+  } catch (err) {
+    logger.error('Greška pri kreiranju reda u checklisti:', err.message);
+  }
+}
+
+/**
+ * Svako veče u 21:30 — podseti da se popuni checklista i javi šta fali,
+ * plus napredak teretane za tekuću nedelju (cilj: min 3 puta).
+ */
+async function checklistPodsetnik() {
+  try {
+    const s = await checklist.stanje();
+
+    if (!s.postoji) {
+      await sendMessage(
+        '📋 Podsetnik: današnji red u dnevnoj checklisti još ne postoji. ' +
+          'Napiši mi šta si danas uradio pa ću ga popuniti.',
+      );
+      return;
+    }
+
+    const t = s.teretana;
+    const teretanaLinija = t.ispunjen
+      ? `💪 Teretana ove nedelje: ${t.bilo}/${t.cilj} — cilj ispunjen!`
+      : `💪 Teretana ove nedelje: ${t.bilo}/${t.cilj} — fali još ${t.ostalo}.`;
+
+    if (s.fali.length === 0) {
+      await sendMessage(
+        `📋 Svaka čast — sve stavke za danas su označene (${s.urađeno}/${s.ukupno}). ✅\n\n${teretanaLinija}`,
+      );
+      return;
+    }
+
+    const lista = s.fali.map((x) => `• ${x}`).join('\n');
+    await sendMessage(
+      `📋 Podsetnik: popuni dnevnu checklistu (${s.dan}).\n\n` +
+        `Trenutno ${s.urađeno}/${s.ukupno}. Neoznačeno:\n${lista}\n\n${teretanaLinija}\n\n` +
+        'Samo mi napiši šta si uradio (npr. „popio sam kreatin, nisam pio kolu").',
+    );
+  } catch (err) {
+    logger.error('Greška pri slanju podsetnika za checklistu:', err.message);
   }
 }
 
