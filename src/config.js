@@ -101,6 +101,8 @@ export const config = {
     siteCheckSilent: optional('SITE_CHECK_SILENT_CRON', '0 10 * * *'),
     // Pun izveštaj o sajtovima (uvek javi) — svaki dan u 18:00.
     siteCheckReport: optional('SITE_CHECK_REPORT_CRON', '0 18 * * *'),
+    // Provera nepročitanih mejlova — svaki pun sat od 8 do 22 (ne budi noću).
+    mailCheck: optional('MAIL_CHECK_CRON', '0 8-22 * * *'),
   },
 };
 

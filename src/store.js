@@ -47,3 +47,30 @@ export function saveHistories(histories) {
     logger.error('Ne mogu da sačuvam istoriju razgovora:', err.message);
   }
 }
+
+/**
+ * Generičko čuvanje malog stanja u DATA_DIR/<name>.json.
+ * Koristi se npr. za pamćenje o kojim je mejlovima već javljeno.
+ */
+export function loadState(name, fallback = null) {
+  try {
+    const file = path.join(DATA_DIR, `${name}.json`);
+    if (!fs.existsSync(file)) return fallback;
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (err) {
+    logger.error(`Ne mogu da učitam stanje "${name}":`, err.message);
+    return fallback;
+  }
+}
+
+export function saveState(name, data) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const file = path.join(DATA_DIR, `${name}.json`);
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(data));
+    fs.renameSync(tmp, file);
+  } catch (err) {
+    logger.error(`Ne mogu da sačuvam stanje "${name}":`, err.message);
+  }
+}

@@ -201,6 +201,7 @@ Ne treba ključ (Open-Meteo). Podesi lokaciju: `WEATHER_LOCATION`, `WEATHER_LAT`
 | `TAX_REMINDER_CRON` | | `0 10 14 * *` | Podsetnik za porez |
 | `SITE_CHECK_SILENT_CRON` | | `0 10 * * *` | Tiha provera sajtova |
 | `SITE_CHECK_REPORT_CRON` | | `0 18 * * *` | Pun izveštaj o sajtovima |
+| `MAIL_CHECK_CRON` | | `0 8-22 * * *` | Provera nepročitanih mejlova |
 | `DATA_DIR` | | `./data` | Gde se čuva istorija razgovora |
 
 > **`TIMEZONE` ≠ lokacija prognoze.** `TIMEZONE` je vremenska zona (ista za celu Srbiju),
@@ -280,9 +281,14 @@ Sve ostalo pišeš prirodno:
 | Kada | Šta |
 |---|---|
 | Svaki dan **10:00** | Jutarnji pregled: prognoza + današnji sastanci + otvoreni zadaci |
+| **Svaki sat, 8–22** | Provera nepročitanih mejlova — javlja **samo o novima** |
 | Svaki dan **10:00** | Tiha provera sajtova — javlja **samo ako ima problema** |
 | Svaki dan **18:00** | Pun izveštaj o dostupnosti sajtova |
 | **14.** u mesecu, 10:00 | Podsetnik za plaćanje poreza |
+
+> **Provera mejlova ne spamuje.** Bot pamti (na disku) o kojim je mejlovima već javio,
+> pa isti nepročitan mejl neće prijavljivati svakog sata. Kad mejl pročitaš, ispada iz
+> evidencije. Noću ćuti — podrazumevani raspored je `0 8-22 * * *`.
 
 Rasporedi se menjaju preko `*_CRON` promenljivih; koriste `TIMEZONE`.
 

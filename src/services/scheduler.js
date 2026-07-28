@@ -7,6 +7,8 @@ import * as calendar from './calendar.js';
 import * as notion from './notion.js';
 import { checkAllSites, formatReport } from './monitor.js';
 import { getForecastLine } from './weather.js';
+import * as mail from './mail.js';
+import { loadState, saveState } from '../store.js';
 
 /**
  * Scheduler — proaktivni podsetnici preko cron izraza.
@@ -37,6 +39,51 @@ export function startScheduler() {
     );
   } else {
     logger.info('Monitoring sajtova preskočen (NOTION_CLIENTS_DB_ID nije podešen).');
+  }
+
+  if (featureEnabled.mail) {
+    cron.schedule(config.cron.mailCheck, mailCheck, options);
+    logger.info(`Zakazana provera mejlova: "${config.cron.mailCheck}" (${config.timezone})`);
+  } else {
+    logger.info('Provera mejlova preskočena (IMAP nije podešen).');
+  }
+}
+
+/**
+ * Periodična provera nepročitanih mejlova.
+ *
+ * Javlja SAMO o mejlovima o kojima ranije nije javio — inače bi ti isti
+ * nepročitan mejl stizao svakog sata. Lista UID-ova o kojima je javljeno
+ * čuva se na disk (preživi restart) i sama se čisti: kad mejl pročitaš,
+ * ispada iz nepročitanih pa i iz te liste.
+ */
+async function mailCheck() {
+  try {
+    const unread = await mail.listUnread({ limit: 15 });
+
+    // Prethodno javljeni UID-ovi (sa diska).
+    const notified = new Set(loadState('notified-mail', []));
+    const fresh = unread.filter((m) => !notified.has(m.uid));
+
+    // Novo stanje = trenutno nepročitani (pročitani automatski ispadaju).
+    saveState('notified-mail', unread.map((m) => m.uid));
+
+    if (fresh.length === 0) {
+      logger.debug(`Provera mejlova: nema novih (ukupno nepročitanih: ${unread.length}).`);
+      return;
+    }
+
+    const lines = fresh.map((m) => `• ${m.subject}\n  od: ${m.from}`);
+    const naslov =
+      fresh.length === 1 ? 'Imaš 1 nov nepročitan mejl:' : `Imaš ${fresh.length} nova nepročitana mejla:`;
+    const ostatak =
+      unread.length > fresh.length ? `\n\n(ukupno nepročitanih: ${unread.length})` : '';
+
+    await sendMessage(`📬 ${naslov}\n\n${lines.join('\n')}${ostatak}`);
+    logger.info(`Provera mejlova: javljeno o ${fresh.length} novih mejlova.`);
+  } catch (err) {
+    // Ne diži buku svakog sata ako IMAP zezne — samo loguj.
+    logger.error('Greška pri proveri mejlova:', err.message);
   }
 }
 
