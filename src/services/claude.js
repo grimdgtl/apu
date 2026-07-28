@@ -3,6 +3,7 @@ import { config, featureEnabled } from '../config.js';
 import { logger } from '../logger.js';
 import { getEnabledTools } from '../tools/definitions.js';
 import { executeTool } from '../tools/index.js';
+import { zaSystemPrompt } from './memory.js';
 
 /**
  * Claude servis — srce asistenta.
@@ -59,7 +60,12 @@ function systemPrompt() {
     '  ako nisi siguran, potvrdi sa korisnikom pre slanja.',
     '',
     `Trenutno vreme: ${now.toISOString()} (vremenska zona: ${config.timezone}).`,
-  ].join('\n');
+    '',
+    // Trajno zapamćene činjenice — prazno ako ih još nema.
+    zaSystemPrompt(),
+  ]
+    .filter((red) => red !== '')
+    .join('\n');
 }
 
 /**

@@ -152,6 +152,8 @@ export const featureEnabled = {
   checklist: Boolean(config.notion.apiKey && config.notion.checklistDbId),
   dnevnik: Boolean(config.notion.apiKey && config.notion.dnevnikDbId),
   todo: Boolean(config.notion.apiKey && config.notion.todoDbId),
+  // Trajno pamćenje činjenica — lokalni fajl, bez ikakvog ključa.
+  memory: true,
   // Vremenska prognoza (Open-Meteo) ne traži ključ — uvek dostupna.
   weather: true,
   // Generisanje izveštaja u Google Doc traži Drive (isti OAuth kao kalendar).

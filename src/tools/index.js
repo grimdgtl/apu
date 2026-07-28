@@ -4,6 +4,7 @@ import * as drive from '../services/drive.js';
 import * as mail from '../services/mail.js';
 import { checkAllSites } from '../services/monitor.js';
 import { getForecast } from '../services/weather.js';
+import * as memory from '../services/memory.js';
 import * as checklist from '../services/checklist.js';
 import * as dnevnik from '../services/dnevnik.js';
 import * as todo from '../services/todo.js';
@@ -23,6 +24,12 @@ const handlers = {
   notion_add_knowledge: (input) => notion.addKnowledge(input),
   notion_read_page: (input) => notion.readPage(input),
   notion_search: (input) => notion.search(input),
+
+  // Trajno pamćenje
+  memory_save: (input) => memory.zapamti(input),
+  memory_list: (input) => memory.lista(input),
+  memory_update: (input) => memory.izmeni(input),
+  memory_forget: (input) => memory.zaboravi(input),
 
   // Dnevna checklista
   checklist_get: (input) => checklist.stanje(input.datum),

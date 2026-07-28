@@ -121,6 +121,79 @@ const definitions = [
     },
   },
 
+  // ---------- Trajno pamćenje ----------
+  {
+    feature: 'memory',
+    name: 'memory_save',
+    description:
+      'Trajno pamti činjenicu o korisniku (preživljava restart i brisanje istorije). ' +
+      'Koristi kada korisnik kaže nešto što treba da važi ubuduće: ko su mu bliski ljudi, ' +
+      'kako voli da mu se piše, kontekst projekta, navike. NE pamti prolazne stvari ' +
+      '(dnevni zadaci idu u todo/taskove, raspoloženje u dnevnik). Sve zapamćeno ti je ' +
+      'automatski dostupno u svakom razgovoru — ne moraš da ga tražiš.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tekst: {
+          type: 'string',
+          description: 'Činjenica u jednoj rečenici, npr. "Sofija je korisnikova devojka".',
+        },
+        kategorija: {
+          type: 'string',
+          enum: ['osoba', 'preferencija', 'projekat', 'navika', 'ostalo'],
+        },
+      },
+      required: ['tekst'],
+    },
+  },
+  {
+    feature: 'memory',
+    name: 'memory_list',
+    description:
+      'Vraća sve trajno zapamćene činjenice sa njihovim ID-evima. Koristi kada korisnik ' +
+      'pita "šta znaš o meni" ili kad ti treba ID da nešto izmeniš/obrišeš.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        kategorija: {
+          type: 'string',
+          enum: ['osoba', 'preferencija', 'projekat', 'navika', 'ostalo'],
+        },
+      },
+    },
+  },
+  {
+    feature: 'memory',
+    name: 'memory_update',
+    description:
+      'Menja postojeću zapamćenu činjenicu (kad se nešto promeni). ID nađi preko memory_list ' +
+      'ili iz uglastih zagrada u listi činjenica koju već imaš u kontekstu.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID činjenice.' },
+        tekst: { type: 'string', description: 'Nov tekst (opciono).' },
+        kategorija: {
+          type: 'string',
+          enum: ['osoba', 'preferencija', 'projekat', 'navika', 'ostalo'],
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    feature: 'memory',
+    name: 'memory_forget',
+    description:
+      'Trajno briše zapamćenu činjenicu. Koristi kada korisnik kaže da nešto više ne važi ' +
+      'ili izričito traži da zaboraviš.',
+    input_schema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'ID činjenice.' } },
+      required: ['id'],
+    },
+  },
+
   // ---------- Dnevna checklista ----------
   {
     feature: 'checklist',

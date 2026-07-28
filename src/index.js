@@ -27,6 +27,7 @@ async function main() {
     checklist: 'checklista',
     dnevnik: 'dnevnik',
     todo: 'todoLista',
+    memory: 'pamcenje',
     weather: 'prognoza',
     reports: 'izvestaji',
   };
