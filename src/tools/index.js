@@ -3,7 +3,14 @@ import * as calendar from '../services/calendar.js';
 import * as drive from '../services/drive.js';
 import * as mail from '../services/mail.js';
 import { checkAllSites } from '../services/monitor.js';
+import * as monitorHistory from '../services/monitorHistory.js';
 import { getForecast } from '../services/weather.js';
+import * as memory from '../services/memory.js';
+import * as semantic from '../services/semantic.js';
+import * as checklist from '../services/checklist.js';
+import * as insights from '../services/insights.js';
+import * as dnevnik from '../services/dnevnik.js';
+import * as todo from '../services/todo.js';
 import { generateReport } from '../services/reports.js';
 import {
   birthdaysToday,
@@ -25,6 +32,36 @@ const handlers = {
   notion_add_knowledge: (input) => notion.addKnowledge(input),
   notion_read_page: (input) => notion.readPage(input),
   notion_search: (input) => notion.search(input),
+
+  // Trajno pamćenje
+  memory_save: (input) => memory.zapamti(input),
+  memory_list: (input) => memory.lista(input),
+  memory_update: (input) => memory.izmeni(input),
+  memory_forget: (input) => memory.zaboravi(input),
+
+  // Semantička pretraga
+  semantic_search: (input) => semantic.trazi(input),
+  semantic_reindex: () => semantic.indeksiraj(),
+
+  // Uptime istorija
+  monitor_uptime: (input) => monitorHistory.uptime(input),
+
+  // Uvidi iz navika
+  insights_get: (input) => insights.izracunaj(input),
+
+  // Dnevna checklista
+  checklist_get: (input) => checklist.stanje(input.datum),
+  checklist_mark: (input) => checklist.oznaci(input),
+  checklist_create_day: (input) => checklist.kreirajRed(input.datum),
+
+  // Dnevnik
+  dnevnik_get: (input) => dnevnik.stanje(input.datum),
+  dnevnik_write: (input) => dnevnik.upisi(input),
+
+  // To-do lista (lični zadaci)
+  todo_list: (input) => todo.lista(input),
+  todo_add: (input) => todo.dodaj(input),
+  todo_set_status: (input) => todo.promeniStatus(input),
 
   // Google Drive
   drive_search: (input) => drive.searchFiles(input),

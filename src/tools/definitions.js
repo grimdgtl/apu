@@ -121,6 +121,296 @@ const definitions = [
     },
   },
 
+  // ---------- Trajno pamćenje ----------
+  {
+    feature: 'memory',
+    name: 'memory_save',
+    description:
+      'Trajno pamti činjenicu o korisniku (preživljava restart i brisanje istorije). ' +
+      'Koristi kada korisnik kaže nešto što treba da važi ubuduće: ko su mu bliski ljudi, ' +
+      'kako voli da mu se piše, kontekst projekta, navike. NE pamti prolazne stvari ' +
+      '(dnevni zadaci idu u todo/taskove, raspoloženje u dnevnik). Sve zapamćeno ti je ' +
+      'automatski dostupno u svakom razgovoru — ne moraš da ga tražiš.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tekst: {
+          type: 'string',
+          description: 'Činjenica u jednoj rečenici, npr. "Sofija je korisnikova devojka".',
+        },
+        kategorija: {
+          type: 'string',
+          enum: ['osoba', 'preferencija', 'projekat', 'navika', 'ostalo'],
+        },
+      },
+      required: ['tekst'],
+    },
+  },
+  {
+    feature: 'memory',
+    name: 'memory_list',
+    description:
+      'Vraća sve trajno zapamćene činjenice sa njihovim ID-evima. Koristi kada korisnik ' +
+      'pita "šta znaš o meni" ili kad ti treba ID da nešto izmeniš/obrišeš.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        kategorija: {
+          type: 'string',
+          enum: ['osoba', 'preferencija', 'projekat', 'navika', 'ostalo'],
+        },
+      },
+    },
+  },
+  {
+    feature: 'memory',
+    name: 'memory_update',
+    description:
+      'Menja postojeću zapamćenu činjenicu (kad se nešto promeni). ID nađi preko memory_list ' +
+      'ili iz uglastih zagrada u listi činjenica koju već imaš u kontekstu.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID činjenice.' },
+        tekst: { type: 'string', description: 'Nov tekst (opciono).' },
+        kategorija: {
+          type: 'string',
+          enum: ['osoba', 'preferencija', 'projekat', 'navika', 'ostalo'],
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    feature: 'memory',
+    name: 'memory_forget',
+    description:
+      'Trajno briše zapamćenu činjenicu. Koristi kada korisnik kaže da nešto više ne važi ' +
+      'ili izričito traži da zaboraviš.',
+    input_schema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'ID činjenice.' } },
+      required: ['id'],
+    },
+  },
+
+  // ---------- Semantička pretraga ----------
+  {
+    feature: 'semantic',
+    name: 'semantic_search',
+    description:
+      'Pretraga po ZNAČENJU kroz korisnikov Notion i Google Drive. Za razliku od ' +
+      'notion_search i drive_search (koji traže doslovnu reč), ovo nalazi i kad se ' +
+      'formulacija ne poklapa — npr. "šta sam pisao o onom klijentu u proleće". ' +
+      'Koristi kada obična pretraga ne nađe ništa ili kada je upit opisan a ne tačan. ' +
+      'Rezultati imaju "ocena" (0-1) — ispod ~0.3 su slabo povezani, ne predstavljaj ih ' +
+      'kao pogodak.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        upit: { type: 'string', description: 'Šta tražiš, svojim rečima.' },
+        limit: { type: 'number', description: 'Broj rezultata (default 5).' },
+      },
+      required: ['upit'],
+    },
+  },
+  {
+    feature: 'semantic',
+    name: 'semantic_reindex',
+    description:
+      'Osvežava indeks za semantičku pretragu (čita Notion i Drive). Traje nekoliko ' +
+      'sekundi. Bot ovo radi sam jednom dnevno — pozovi samo ako korisnik izričito traži ' +
+      'ili ako pretraga ne nalazi nešto što je tek dodato.',
+    input_schema: { type: 'object', properties: {} },
+  },
+
+  // ---------- Uptime istorija ----------
+  {
+    feature: 'siteMonitor',
+    name: 'monitor_uptime',
+    description:
+      'Dostupnost (uptime) sajtova klijenata za period unazad, iz zabeleženih provera. ' +
+      'Koristi za "koliko je sajt X bio dostupan ovog meseca", "koji sajt najviše pada", ' +
+      'ili kada treba klijentu dati izveštaj. Za razliku od monitor_check_sites (koji ' +
+      'proverava SADA), ovo čita istoriju i ne šalje nijedan zahtev ka sajtovima.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        dana: { type: 'number', description: 'Period u danima (default 30).' },
+        sajt: { type: 'string', description: 'Opciono ime klijenta/sajta (podniz).' },
+      },
+    },
+  },
+
+  // ---------- Uvidi iz navika ----------
+  {
+    feature: 'checklist',
+    name: 'insights_get',
+    description:
+      'Statistika i uvidi iz dnevne checkliste i dnevnika za period unazad (default 30 dana): ' +
+      'prosečan skor, nizovi uspešnih dana, koje stavke se najčešće preskaču, koji dan u nedelji ' +
+      'je najbolji, i veza između pojedinih navika i raspoloženja/energije. ' +
+      'Koristi kada korisnik pita "kako mi ide", "šta mi najviše smeta", "koji mi je najgori dan". ' +
+      'Sve su tvrde brojke — prepričaj ih, ne dodaji zaključke koje podaci ne pokrivaju. ' +
+      'Ako rezultat ima polje "napomena", obavezno je pomeni.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        dana: { type: 'number', description: 'Koliko dana unazad (default 30).' },
+      },
+    },
+  },
+
+  // ---------- Dnevna checklista ----------
+  {
+    feature: 'checklist',
+    name: 'checklist_get',
+    description:
+      'Čita dnevnu checklistu navika za dati datum (podrazumevano danas): koje su stavke ' +
+      'označene, koje fale, skor, i koliko je puta ove nedelje bio u teretani (cilj: min 3). ' +
+      'Koristi za "šta mi fali danas", "koliko sam puta bio u teretani".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+    },
+  },
+  {
+    feature: 'checklist',
+    name: 'checklist_mark',
+    description:
+      'Označava (ili skida oznaku) stavke u dnevnoj checklisti. Ako red za taj dan ne postoji, ' +
+      'automatski ga kreira.\n' +
+      'Dozvoljena imena stavki su TAČNO ova:\n' +
+      'Ustajanje 6:00, Teretana 7:00, Kreatin, Doručak, Vitamin D3 i K2, Tuširanje i C serum, ' +
+      'Večera 19:00, Magnezijum, Bez Coca-Cole, Bez gazirane vode, Bez alkohola, Bez pušenja, ' +
+      'Bez slatkog, Bez igrica, Bez telefona posle 22:00.\n' +
+      'VAŽNO — stavke koje počinju sa "Bez " su OBRNUTE: true znači da je uspešno IZBEGAO tu ' +
+      'stvar. Primeri: "popio sam kreatin" → {"Kreatin": true}; "nisam pio koka-kolu" → ' +
+      '{"Bez Coca-Cole": true}; "pušio sam danas" → {"Bez pušenja": false}; "bio sam u teretani" ' +
+      '→ {"Teretana 7:00": true}; "jeo sam slatko" → {"Bez slatkog": false}.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        stavke: {
+          type: 'object',
+          description:
+            'Mapa { "Naziv stavke": true/false }. Koristi isključivo nazive iz opisa alata.',
+        },
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+      required: ['stavke'],
+    },
+  },
+  {
+    feature: 'checklist',
+    name: 'checklist_create_day',
+    description:
+      'Kreira nov red u dnevnoj checklisti za dati datum (naslov = ime dana u nedelji). ' +
+      'Ako red već postoji, ne pravi duplikat. Bot ovo radi automatski svako jutro u 5:00 — ' +
+      'koristi alat samo ako korisnik izričito traži.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+    },
+  },
+
+  // ---------- Dnevnik ----------
+  {
+    feature: 'dnevnik',
+    name: 'dnevnik_get',
+    description:
+      'Čita zapis u Dnevniku za dati datum (default danas): raspoloženje, energija, ključna reč ' +
+      'i lista polja koja su još prazna.',
+    input_schema: {
+      type: 'object',
+      properties: { datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' } },
+    },
+  },
+  {
+    feature: 'dnevnik',
+    name: 'dnevnik_write',
+    description:
+      'Upisuje dnevnik za dati dan. Ako zapis ne postoji, kreira ga. Upiši samo ona polja koja ' +
+      'je korisnik zaista pomenuo.\n' +
+      'raspolozenje: Odlično | Dobro | Neutralno | Loše | Teško\n' +
+      'energija: Visoka | Srednja | Niska\n' +
+      'kljucnaRec: kratka reč/fraza koja opisuje dan (npr. "fokusiran", "naporan dan").\n' +
+      'VAŽNO: rezultat sadrži polje "prazno" — ako ono nije prazno, OBAVEZNO pitaj korisnika ' +
+      'za ta polja (npr. "Kakva ti je bila energija danas — visoka, srednja ili niska?"). ' +
+      'Ne izmišljaj vrednosti koje korisnik nije rekao.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        raspolozenje: {
+          type: 'string',
+          enum: ['Odlično', 'Dobro', 'Neutralno', 'Loše', 'Teško'],
+          description: 'Kako se osećao.',
+        },
+        energija: {
+          type: 'string',
+          enum: ['Visoka', 'Srednja', 'Niska'],
+          description: 'Nivo energije.',
+        },
+        kljucnaRec: { type: 'string', description: 'Ključna reč ili kratka fraza za taj dan.' },
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+    },
+  },
+
+  // ---------- To-do lista (lični zadaci) ----------
+  {
+    feature: 'todo',
+    name: 'todo_list',
+    description:
+      'Vraća lične zadatke sa To-do liste (Life stranica). Podrazumevano samo otvorene. ' +
+      'Ovo je LIČNA lista (kućni poslovi, ljudi, zdravlje) — za poslovne zadatke koristi ' +
+      'notion_list_tasks.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Not started', 'In progress', 'Done'] },
+        limit: { type: 'number', description: 'Maksimalan broj (default 25).' },
+      },
+    },
+  },
+  {
+    feature: 'todo',
+    name: 'todo_add',
+    description: 'Dodaje nov lični zadatak na To-do listu (Life stranica).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        zadatak: { type: 'string', description: 'Naziv zadatka.' },
+        oblast: {
+          type: 'string',
+          enum: ['Zdravlje', 'Kuća', 'Finansije', 'Ljudi', 'Učenje', 'Ostalo'],
+        },
+        prioritet: { type: 'string', enum: ['Visok', 'Srednji', 'Nizak'] },
+        rok: { type: 'string', description: 'Rok kao YYYY-MM-DD (opciono).' },
+      },
+      required: ['zadatak'],
+    },
+  },
+  {
+    feature: 'todo',
+    name: 'todo_set_status',
+    description:
+      'Menja status ličnog zadatka — npr. kad korisnik kaže "kupio sam cveće" postavi na "Done". ' +
+      'Prvo pozovi todo_list da nađeš ID zadatka.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        zadatakId: { type: 'string', description: 'ID zadatka (iz todo_list).' },
+        status: { type: 'string', enum: ['Not started', 'In progress', 'Done'] },
+      },
+      required: ['zadatakId', 'status'],
+    },
+  },
+
   // ---------- Google Drive ----------
   {
     feature: 'drive',

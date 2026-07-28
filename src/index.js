@@ -13,17 +13,39 @@ import { logger } from './logger.js';
 async function main() {
   logger.info('Pokrećem APU — lični Telegram AI asistent...');
   logger.info(`Model: ${config.anthropic.model}`);
-  logger.info('Aktivne integracije:', {
-    notionZadaci: featureEnabled.notionTasks,
-    notionKb: featureEnabled.notionKb,
-    calendar: featureEnabled.calendar,
-    drive: featureEnabled.drive,
-    mail: featureEnabled.mail,
-    glasovne: featureEnabled.voice,
-    monitoringSajtova: featureEnabled.siteMonitor,
-    rodjendani: featureEnabled.birthdays,
-    izvestaji: featureEnabled.reports,
-  });
+  // Nazivi se izvode iz samog featureEnabled — tako nijedna nova integracija
+  // ne može da "ispadne" iz ispisa kad se doda (ranije se to desilo).
+  const NAZIVI = {
+    notionSearch: 'notionPretraga',
+    notionTasks: 'notionZadaci',
+    notionKb: 'notionKb',
+    calendar: 'calendar',
+    drive: 'drive',
+    mail: 'mail',
+    voice: 'glasovne',
+    siteMonitor: 'monitoringSajtova',
+    birthdays: 'rodjendani',
+    checklist: 'checklista',
+    dnevnik: 'dnevnik',
+    todo: 'todoLista',
+    memory: 'pamcenje',
+    semantic: 'semantickaPretraga',
+    weather: 'prognoza',
+    reports: 'izvestaji',
+  };
+
+  const stanje = {};
+  for (const [kljuc, vrednost] of Object.entries(featureEnabled)) {
+    stanje[NAZIVI[kljuc] ?? kljuc] = vrednost;
+  }
+  logger.info('Aktivne integracije:', stanje);
+
+  const iskljucene = Object.entries(stanje)
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
+  if (iskljucene.length) {
+    logger.warn(`Isključene integracije: ${iskljucene.join(', ')}`);
+  }
 
   startScheduler();
 

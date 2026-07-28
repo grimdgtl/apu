@@ -3,6 +3,7 @@ import { config, featureEnabled } from '../config.js';
 import { logger } from '../logger.js';
 import { getEnabledTools } from '../tools/definitions.js';
 import { executeTool } from '../tools/index.js';
+import { zaSystemPrompt } from './memory.js';
 
 /**
  * Claude servis — srce asistenta.
@@ -44,6 +45,14 @@ function systemPrompt() {
     '- Kada alat uspešno izvrši radnju (poslat mejl, dodat zadatak, zakazan sastanak), ',
     '  potvrdi to korisniku jasno i bez dvosmislenosti. Ako u istoriji vidiš da je alat ',
     '  već pozvan, ne tvrdi suprotno.',
+    '- Dnevnik: kada korisnik opiše kako mu je bio dan, upiši SAMO ono što je zaista rekao, ',
+    '  pa ga pitaj za polja koja su ostala prazna (rezultat alata ih navodi u "prazno"). ',
+    '  Nikada ne izmišljaj raspoloženje, energiju ni ključnu reč.',
+    '- Motivacija: ako korisnik kaže da će pokleknuti, da ne može ili da neće uspeti nešto sa ',
+    '  liste, NE drži mu predavanje. Prvo pozovi checklist_get (i po potrebi todo_list) da vidiš ',
+    '  njegov stvarni napredak, pa ga ohrabri konkretno — pozovi se na brojke koje je već ',
+    '  ostvario (npr. koliko je puta bio u teretani ove nedelje, koliki mu je skor). ',
+    '  Budi kratak, topao i bez patetike.',
     '- Pre zakazivanja sastanka proveri slobodne termine ako je potrebno.',
     '- Kada rukuješ datumima, koristi ISO 8601 format i uzmi u obzir vremensku zonu.',
     '- Kada korisnik kaže da je čestitao rođendan (npr. "čestitao sam Nikoli", "javio sam ',
@@ -55,7 +64,12 @@ function systemPrompt() {
     '  ako nisi siguran, potvrdi sa korisnikom pre slanja.',
     '',
     `Trenutno vreme: ${now.toISOString()} (vremenska zona: ${config.timezone}).`,
-  ].join('\n');
+    '',
+    // Trajno zapamćene činjenice — prazno ako ih još nema.
+    zaSystemPrompt(),
+  ]
+    .filter((red) => red !== '')
+    .join('\n');
 }
 
 /**

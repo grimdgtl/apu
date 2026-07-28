@@ -4,6 +4,7 @@ import { logger } from '../logger.js';
 import { runAgent } from './claude.js';
 import { loadHistories, saveHistories } from '../store.js';
 import { transcribe } from './transcribe.js';
+import * as jobs from './jobs.js';
 
 /**
  * Telegram servis — sloj između korisnika i Claude agenta.
@@ -152,6 +153,12 @@ async function respondTo(ctx, chatId, userContent) {
     clearInterval(typing);
   }
 }
+
+bot.command('poslovi', async (ctx) => {
+  if (!isOwner(ctx.chat.id)) return;
+  const sati = Number(ctx.message.text.split(' ')[1]) || 24;
+  await ctx.reply(`🔧 ${jobs.formatiraj(jobs.pregled({ sati }))}`);
+});
 
 bot.on('text', async (ctx) => {
   const chatId = ctx.chat.id;

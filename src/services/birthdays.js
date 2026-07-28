@@ -13,7 +13,8 @@ import * as notion from './notion.js';
  * /reset ne pobriše zabeleške), po ključu godina-mesec-dan + ID osobe.
  */
 
-const STATE_KEY = 'birthdayGreetings';
+// Ime fajla u DATA_DIR (state se čuva kao data/birthdays.json).
+const STATE_NAME = 'birthdays';
 
 /**
  * Današnji datum u KONFIGURISANOJ vremenskoj zoni (ne serverskoj).
@@ -98,8 +99,7 @@ export async function upcomingBirthdays({ days = 30 } = {}) {
 
 /** Čita mapu čestitki za današnji dan: { personId: true }. */
 function greetedToday() {
-  const state = loadState();
-  const all = state[STATE_KEY] || {};
+  const all = loadState(STATE_NAME, {}) || {};
   return all[todayInTimezone().iso] || {};
 }
 
@@ -109,8 +109,7 @@ function greetedToday() {
  */
 export function markGreeted(personId) {
   const today = todayInTimezone();
-  const state = loadState();
-  const all = state[STATE_KEY] || {};
+  const all = loadState(STATE_NAME, {}) || {};
 
   const cutoff = Date.UTC(today.year, today.month - 1, today.day) - 7 * 86_400_000;
   for (const key of Object.keys(all)) {
@@ -119,8 +118,7 @@ export function markGreeted(personId) {
   }
 
   all[today.iso] = { ...(all[today.iso] || {}), [personId]: true };
-  state[STATE_KEY] = all;
-  saveState(state);
+  saveState(STATE_NAME, all);
   logger.info(`Rođendani: označeno da je čestitano (${personId}).`);
 }
 
