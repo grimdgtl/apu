@@ -194,6 +194,25 @@ const definitions = [
     },
   },
 
+  // ---------- Uvidi iz navika ----------
+  {
+    feature: 'checklist',
+    name: 'insights_get',
+    description:
+      'Statistika i uvidi iz dnevne checkliste i dnevnika za period unazad (default 30 dana): ' +
+      'prosečan skor, nizovi uspešnih dana, koje stavke se najčešće preskaču, koji dan u nedelji ' +
+      'je najbolji, i veza između pojedinih navika i raspoloženja/energije. ' +
+      'Koristi kada korisnik pita "kako mi ide", "šta mi najviše smeta", "koji mi je najgori dan". ' +
+      'Sve su tvrde brojke — prepričaj ih, ne dodaji zaključke koje podaci ne pokrivaju. ' +
+      'Ako rezultat ima polje "napomena", obavezno je pomeni.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        dana: { type: 'number', description: 'Koliko dana unazad (default 30).' },
+      },
+    },
+  },
+
   // ---------- Dnevna checklista ----------
   {
     feature: 'checklist',

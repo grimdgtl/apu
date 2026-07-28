@@ -6,6 +6,7 @@ import { checkAllSites } from '../services/monitor.js';
 import { getForecast } from '../services/weather.js';
 import * as memory from '../services/memory.js';
 import * as checklist from '../services/checklist.js';
+import * as insights from '../services/insights.js';
 import * as dnevnik from '../services/dnevnik.js';
 import * as todo from '../services/todo.js';
 import { generateReport } from '../services/reports.js';
@@ -30,6 +31,9 @@ const handlers = {
   memory_list: (input) => memory.lista(input),
   memory_update: (input) => memory.izmeni(input),
   memory_forget: (input) => memory.zaboravi(input),
+
+  // Uvidi iz navika
+  insights_get: (input) => insights.izracunaj(input),
 
   // Dnevna checklista
   checklist_get: (input) => checklist.stanje(input.datum),
