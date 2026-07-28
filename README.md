@@ -351,7 +351,7 @@ Everything else is plain language (the bot is used in Serbian):
 | Every day **4:00** | Refreshes the semantic search index (silent) |
 | Every day **5:00** | Creates the day's checklist row and journal entry (linked to each other), silently |
 | Monday **5:00** | Creates the weekly recurring personal task (due Sunday) |
-| Every day **6:00** | Morning greeting: motivation + weather forecast |
+| Every day **6:00** | Morning greeting: motivation + weather forecast (on **Mondays** also whose birthday falls that week, and on which day) |
 | Every day **9:30** | Work briefing: calendar, tasks, unread mail (no weather) |
 | **Hourly, 8–22** | Unread-mail check — reports **only new** messages |
 | Every day **10:00** | Silent website check — speaks up **only if something is wrong** |
@@ -367,6 +367,10 @@ Everything else is plain language (the bot is used in Serbian):
 > reported, so the same unread mail is never announced twice. Once you read a message it
 > drops out of that record. It stays quiet overnight — the default schedule is
 > `0 8-22 * * *`.
+
+> **Birthdays repeat by themselves.** Only the day and month are matched, so every entry
+> comes back every year with nothing to maintain. Monday's 6:00 greeting previews the whole
+> week so a present can be planned ahead of the day itself.
 
 > **Birthdays close themselves out.** Tell the bot "čestitao sam Nikoli" and it records
 > that (in `data/birthdays.json`, so `/reset` does not wipe it) and drops that person from

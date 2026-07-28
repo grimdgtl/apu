@@ -17,8 +17,11 @@ import * as semantic from './semantic.js';
 import {
   birthdaysToday,
   ungreetedToday,
+  birthdaysThisWeek,
+  isMonday,
   formatMorning,
   formatEvening,
+  formatWeekAhead,
 } from './birthdays.js';
 
 /**
@@ -109,6 +112,7 @@ export function startScheduler() {
 
 /**
  * Svako jutro u 6:00 — kratka motivaciona poruka + vremenska prognoza.
+ * Ponedeljkom se dodaje i pregled rođendana za tu nedelju.
  * Ovo je "lični" deo jutra; poslovni pregled ide kasnije (9:30).
  */
 async function jutarnjiPozdrav() {
@@ -125,7 +129,21 @@ async function jutarnjiPozdrav() {
         (prognoza ? `Prognoza: ${prognoza}` : 'Prognoza nije dostupna — ne pominji vreme.'),
     );
 
-    await sendMessage(`🌅 Dobro jutro!\n\n${text}`);
+    // Ponedeljkom uz pozdrav ide i pregled rođendana za celu nedelju, da se
+    // poklon/čestitka mogu isplanirati unapred, a ne tek na sam dan.
+    let rodjendani = '';
+    if (featureEnabled.birthdays && isMonday()) {
+      try {
+        const nedelja = await birthdaysThisWeek();
+        const pregled = formatWeekAhead(nedelja);
+        if (pregled) rodjendani = `\n\n${pregled}`;
+      } catch (err) {
+        // Pozdrav je važniji od pregleda — ako Notion zezne, samo preskoči.
+        logger.error('Ne mogu da pročitam rođendane za nedeljni pregled:', err.message);
+      }
+    }
+
+    await sendMessage(`🌅 Dobro jutro!\n\n${text}${rodjendani}`);
     logger.info('Jutarnji pozdrav poslat.');
   } catch (err) {
     logger.error('Greška pri slanju jutarnjeg pozdrava:', err.message);

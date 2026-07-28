@@ -95,6 +95,51 @@ export async function upcomingBirthdays({ days = 30 } = {}) {
   return out.sort((a, b) => a.inDays - b.inDays);
 }
 
+/** Da li je danas ponedeljak (u konfigurisanoj vremenskoj zoni). */
+export function isMonday() {
+  const dan = new Intl.DateTimeFormat('en-US', {
+    timeZone: config.timezone,
+    weekday: 'short',
+  }).format(new Date());
+  return dan === 'Mon';
+}
+
+const DANI = ['nedelja', 'ponedeljak', 'utorak', 'sreda', 'četvrtak', 'petak', 'subota'];
+
+/**
+ * Rođendani od danas (ponedeljak) do kraja nedelje — 7 dana unapred.
+ * Svakom dodaje naziv dana i datum, da se odmah vidi "kad".
+ */
+export async function birthdaysThisWeek() {
+  const people = await upcomingBirthdays({ days: 6 });
+  const today = todayInTimezone();
+  const base = Date.UTC(today.year, today.month - 1, today.day);
+
+  return people.map((p) => {
+    const when = new Date(base + p.inDays * 86_400_000);
+    return {
+      ...p,
+      dayName: DANI[when.getUTCDay()],
+      dayDate: `${when.getUTCDate()}.${when.getUTCMonth() + 1}.`,
+    };
+  });
+}
+
+/** Ponedeljkom uz jutarnju poruku — ko slavi ove nedelje i kada. */
+export function formatWeekAhead(people) {
+  if (people.length === 0) return null;
+
+  const lines = people.map((p) => {
+    const kada = p.inDays === 0 ? 'danas' : `${p.dayName} ${p.dayDate}`;
+    const godine = p.age ? ` (puni ${p.age})` : '';
+    return `• ${kada} — ${p.name}${godine}`;
+  });
+
+  const naslov =
+    people.length === 1 ? 'Ove nedelje je jedan rođendan:' : `Ove nedelje ima ${people.length} rođendana:`;
+  return `🎂 ${naslov}\n${lines.join('\n')}`;
+}
+
 // ------------------------------------------------------ praćenje čestitki ---
 
 /** Čita mapu čestitki za današnji dan: { personId: true }. */
