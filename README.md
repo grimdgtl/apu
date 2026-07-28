@@ -58,6 +58,10 @@ Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →
 | **Google Drive** | `drive_search`, `drive_read`, `drive_create` |
 | **Google Calendar** | `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_event` |
 | **Email** | `mail_list_unread`, `mail_save_draft`, `mail_send` |
+| **Long-term memory** | `memory_save`, `memory_list`, `memory_update`, `memory_forget` |
+| **Habit insights** | `insights_get` |
+| **Semantic search** | `semantic_search`, `semantic_reindex` |
+| **Uptime history** | `monitor_uptime` |
 | **Weather** | `weather_get` |
 | **Website monitoring** | `monitor_check_sites` |
 | **Reports** | `generate_report` (writes a report into a Google Doc) |
@@ -92,7 +96,12 @@ apu/
     │   ├── mail.js         # IMAP read/drafts + sending (Resend or SMTP)
     │   ├── transcribe.js   # Whisper (OpenAI or Groq)
     │   ├── weather.js      # Open-Meteo forecast
+    │   ├── memory.js       # long-term facts, injected into the system prompt
+    │   ├── insights.js     # statistics over checklist + journal
+    │   ├── semantic.js     # embeddings index and meaning-based search
+    │   ├── jobs.js         # cron job retry + run log
     │   ├── monitor.js      # client website uptime checks
+    │   ├── monitorHistory.js # stored check results, uptime reports
     │   ├── reports.js      # report generation into a Google Doc
     │   └── scheduler.js    # cron reminders
     └── tools/
@@ -234,6 +243,7 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 | `CHECKLIST_PRAISE_THRESHOLD` | | `70` | Threshold (%) for the congratulation |
 | `WEEKLY_SUMMARY_CRON` | | `0 22 * * 0` | Weekly praise (Sunday) |
 | `FLOWERS_TASK_CRON` | | `0 5 * * 1` | Weekly recurring personal task |
+| `SEMANTIC_INDEX_CRON` | | `0 4 * * *` | Rebuilds the semantic search index |
 | `DATA_DIR` | | `./data` | Where conversation history is stored |
 | `NIXPACKS_NODE_VERSION` | | — | Build-time only (Coolify/Nixpacks) — set to `22` |
 
@@ -305,6 +315,7 @@ The bot is a **background worker** — it does not listen on any HTTP port.
 | `/start` | Greeting |
 | `/status` | Shows which integrations are enabled |
 | `/reset` | Clears conversation history |
+| `/poslovi [hours]` | Scheduled-job report: what ran, what failed |
 
 Everything else is plain language (the bot is used in Serbian):
 
@@ -335,6 +346,7 @@ Everything else is plain language (the bot is used in Serbian):
 
 | When | What |
 |---|---|
+| Every day **4:00** | Refreshes the semantic search index (silent) |
 | Every day **5:00** | Creates the day's checklist row and journal entry (linked to each other), silently |
 | Monday **5:00** | Creates the weekly recurring personal task (due Sunday) |
 | Every day **6:00** | Morning greeting: motivation + weather forecast |
@@ -408,5 +420,14 @@ Clear the date on the template row.
   `tool_use`/`tool_result` pairs.
 - **Replies always use Latin script** and no Markdown formatting (Telegram does not
   render it in this mode).
+- **Long-term memory** lives in `DATA_DIR/facts.json` and is injected into the system
+  prompt on every message, so the bot always knows it without having to look it up.
+- **Scheduled jobs retry** up to 3 times with growing back-off; if all attempts fail you
+  get one Telegram message. `/poslovi` shows the run log.
+- **Insights are plain statistics, not machine learning** — with roughly one row per day
+  a trained model would fit noise. Correlations are only reported when there are at
+  least 3 days on both sides of a comparison.
+- **Semantic search** is the one place a model is used (OpenAI embeddings). Documents
+  whose text has not changed are skipped on re-indexing.
 - **Daily rows are idempotent** — the 5:00 job never creates a duplicate for a date that
   already has one.
