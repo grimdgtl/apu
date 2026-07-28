@@ -27,8 +27,11 @@ import { loadState, saveState } from '../store.js';
 export function startScheduler() {
   const options = { timezone: config.timezone };
 
+  cron.schedule(config.cron.morningGreeting, jutarnjiPozdrav, options);
+  logger.info(`Zakazan jutarnji pozdrav: "${config.cron.morningGreeting}" (${config.timezone})`);
+
   cron.schedule(config.cron.morningBriefing, morningBriefing, options);
-  logger.info(`Zakazan jutarnji pregled: "${config.cron.morningBriefing}" (${config.timezone})`);
+  logger.info(`Zakazan poslovni pregled: "${config.cron.morningBriefing}" (${config.timezone})`);
 
   cron.schedule(config.cron.taxReminder, taxReminder, options);
   logger.info(`Zakazan podsetnik za porez: "${config.cron.taxReminder}" (${config.timezone})`);
@@ -70,6 +73,31 @@ export function startScheduler() {
     logger.info(`Zakazan nedeljni zadatak (cveće): "${config.cron.flowersTask}" (${config.timezone})`);
   } else {
     logger.info('To-do lista preskočena (NOTION_TODO_DB_ID nije podešen).');
+  }
+}
+
+/**
+ * Svako jutro u 6:00 — kratka motivaciona poruka + vremenska prognoza.
+ * Ovo je "lični" deo jutra; poslovni pregled ide kasnije (9:30).
+ */
+async function jutarnjiPozdrav() {
+  logger.info('Šaljem jutarnji pozdrav...');
+  try {
+    const prognoza = featureEnabled.weather ? await getForecastLine() : null;
+
+    const text = await generateText(
+      'Napiši kratku jutarnju poruku korisniku, na srpskom, latinicom, bez Markdown ' +
+        'formatiranja. Ton: energičan i podsticajan, kao dobar prijatelj — u duhu ' +
+        '"danas je nov dan, idemo jako". Maksimalno 3 rečenice, bez patetike i bez klišea ' +
+        'tipa "grabi dan". Ako je data prognoza, prirodno je uklopi (npr. da obuče nešto ' +
+        'lakše ili ponese kišobran). Koristi ISKLJUČIVO podatke ispod — ništa ne izmišljaj.\n\n' +
+        (prognoza ? `Prognoza: ${prognoza}` : 'Prognoza nije dostupna — ne pominji vreme.'),
+    );
+
+    await sendMessage(`🌅 Dobro jutro!\n\n${text}`);
+    logger.info('Jutarnji pozdrav poslat.');
+  } catch (err) {
+    logger.error('Greška pri slanju jutarnjeg pozdrava:', err.message);
   }
 }
 
@@ -287,10 +315,7 @@ async function morningBriefing() {
   try {
     const parts = [];
 
-    if (featureEnabled.weather) {
-      const weather = await getForecastLine();
-      if (weather) parts.push(`Vremenska prognoza za danas:\n${weather}`);
-    }
+    // Prognoza NAMERNO nije ovde — ona ide u jutarnji pozdrav u 6:00.
 
     if (featureEnabled.calendar) {
       const start = new Date();
@@ -332,14 +357,17 @@ async function morningBriefing() {
       : 'Nema dostupnih podataka iz kalendara ni Notion-a.';
 
     const text = await generateText(
-      `Napravi kratak, prijateljski jutarnji pregled dana na srpskom na osnovu ovih podataka. ` +
-        `Ako ima prognoze, počni jednom rečenicom o vremenu. Zatim istakni sastanke po vremenu ` +
-        `i najvažnije zadatke. Na kraju obavezno navedi nepročitane mejlove: koliko ih ima i ` +
-        `za svaki pošiljaoca i naslov (kao listu). Ako ih nema, reci to jednom rečenicom. ` +
+      `Napravi poslovni pregled dana na srpskom na osnovu ovih podataka. ` +
+        `NE pominji vreme ni vremensku prognozu — to je korisnik već dobio ranije. ` +
+        `Redosled: prvo raspored iz kalendara (sastanci po vremenu), zatim zadaci, ` +
+        `pa na kraju nepročitani mejlovi (koliko ih ima i za svaki pošiljalac i naslov). ` +
+        `Ako neke od tih stavki nema, reci to jednom kratkom rečenicom. ` +
         `Budi konkretan i sažet.\n\n${raw}`,
     );
 
-    await sendMessage(`☀️ Dobro jutro! Evo pregleda za danas:\n\n${text}`);
+    await sendMessage(
+      `💼 Hej, sad kad si obavio sve jutarnje rituale — prelazimo na posao.\n\n${text}`,
+    );
   } catch (err) {
     logger.error('Greška u jutarnjem pregledu:', err);
     await sendMessage('☀️ Dobro jutro! (Nisam uspeo da povučem sve podatke za pregled.)').catch(

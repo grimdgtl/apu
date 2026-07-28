@@ -104,7 +104,10 @@ export const config = {
   },
 
   cron: {
-    morningBriefing: optional('MORNING_BRIEFING_CRON', '0 10 * * *'),
+    // Jutarnji pozdrav (motivacija + prognoza) — svako jutro u 6:00.
+    morningGreeting: optional('MORNING_GREETING_CRON', '0 6 * * *'),
+    // Poslovni pregled (kalendar, zadaci, mejlovi) — radnim jutrom u 9:30.
+    morningBriefing: optional('MORNING_BRIEFING_CRON', '30 9 * * *'),
     taxReminder: optional('TAX_REMINDER_CRON', '0 10 14 * *'),
     // Tiha provera sajtova (javi samo ako ima problema) — svaki dan u 10:00.
     siteCheckSilent: optional('SITE_CHECK_SILENT_CRON', '0 10 * * *'),

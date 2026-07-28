@@ -203,7 +203,8 @@ Ne treba ključ (Open-Meteo). Podesi lokaciju: `WEATHER_LOCATION`, `WEATHER_LAT`
 | `WEATHER_LAT` / `WEATHER_LON` | | `45.2671` / `19.8335` | Koordinate |
 | `SITE_MONITOR_TIMEOUT_MS` | | `15000` | Prag za „sajt pao" |
 | `SITE_MONITOR_SLOW_MS` | | `5000` | Prag za „sporo" |
-| `MORNING_BRIEFING_CRON` | | `0 10 * * *` | Jutarnji pregled |
+| `MORNING_GREETING_CRON` | | `0 6 * * *` | Jutarnji pozdrav + prognoza |
+| `MORNING_BRIEFING_CRON` | | `30 9 * * *` | Poslovni pregled |
 | `TAX_REMINDER_CRON` | | `0 10 14 * *` | Podsetnik za porez |
 | `SITE_CHECK_SILENT_CRON` | | `0 10 * * *` | Tiha provera sajtova |
 | `SITE_CHECK_REPORT_CRON` | | `0 18 * * *` | Pun izveštaj o sajtovima |
@@ -296,7 +297,8 @@ Sve ostalo pišeš prirodno:
 
 | Kada | Šta |
 |---|---|
-| Svaki dan **10:00** | Jutarnji pregled: prognoza + današnji sastanci + otvoreni zadaci + **nepročitani mejlovi** (koliko ih je, od koga i naslov) |
+| Svaki dan **6:00** | Jutarnji pozdrav: motivacija + vremenska prognoza |
+| Svaki dan **9:30** | Poslovni pregled: kalendar, zadaci, neprocitani mejlovi (bez prognoze) |
 | **Svaki sat, 8–22** | Provera nepročitanih mejlova — javlja **samo o novima** |
 | Svaki dan **10:00** | Tiha provera sajtova — javlja **samo ako ima problema** |
 | Svaki dan **18:00** | Pun izveštaj o dostupnosti sajtova |
