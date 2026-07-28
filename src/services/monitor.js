@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { logger } from '../logger.js';
+import { zabelezi } from './monitorHistory.js';
 import * as notion from './notion.js';
 
 /**
@@ -79,6 +80,13 @@ export async function checkAllSites() {
 
   const results = await Promise.all(sites.map(checkSite));
   const problems = results.filter((r) => !r.ok);
+
+  // Zapamti rezultat da bismo kasnije mogli da izračunamo uptime.
+  try {
+    zabelezi(results);
+  } catch (err) {
+    logger.error('Ne mogu da upišem istoriju monitoringa:', err.message);
+  }
 
   return { results, problems, checked: results.length };
 }

@@ -3,6 +3,7 @@ import * as calendar from '../services/calendar.js';
 import * as drive from '../services/drive.js';
 import * as mail from '../services/mail.js';
 import { checkAllSites } from '../services/monitor.js';
+import * as monitorHistory from '../services/monitorHistory.js';
 import { getForecast } from '../services/weather.js';
 import * as memory from '../services/memory.js';
 import * as checklist from '../services/checklist.js';
@@ -31,6 +32,9 @@ const handlers = {
   memory_list: (input) => memory.lista(input),
   memory_update: (input) => memory.izmeni(input),
   memory_forget: (input) => memory.zaboravi(input),
+
+  // Uptime istorija
+  monitor_uptime: (input) => monitorHistory.uptime(input),
 
   // Uvidi iz navika
   insights_get: (input) => insights.izracunaj(input),

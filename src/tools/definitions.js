@@ -194,6 +194,24 @@ const definitions = [
     },
   },
 
+  // ---------- Uptime istorija ----------
+  {
+    feature: 'siteMonitor',
+    name: 'monitor_uptime',
+    description:
+      'Dostupnost (uptime) sajtova klijenata za period unazad, iz zabeleženih provera. ' +
+      'Koristi za "koliko je sajt X bio dostupan ovog meseca", "koji sajt najviše pada", ' +
+      'ili kada treba klijentu dati izveštaj. Za razliku od monitor_check_sites (koji ' +
+      'proverava SADA), ovo čita istoriju i ne šalje nijedan zahtev ka sajtovima.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        dana: { type: 'number', description: 'Period u danima (default 30).' },
+        sajt: { type: 'string', description: 'Opciono ime klijenta/sajta (podniz).' },
+      },
+    },
+  },
+
   // ---------- Uvidi iz navika ----------
   {
     feature: 'checklist',
