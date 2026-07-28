@@ -303,6 +303,54 @@ const definitions = [
     },
   },
 
+  // ---------- Rođendani ----------
+  {
+    feature: 'birthdays',
+    name: 'birthdays_today',
+    description:
+      'Vraća ko danas slavi rođendan (ime, koliko puni godina, odnos, telefon, ideja za ' +
+      'poklon, napomena). Koristi kada korisnik pita "ko danas slavi", "ima li rođendana".',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    feature: 'birthdays',
+    name: 'birthdays_upcoming',
+    description:
+      'Vraća nadolazeće rođendane, sortirane po tome koliko dana fali. Koristi za ' +
+      '"ko slavi ove nedelje", "ko je sledeći na redu za rođendan".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        days: { type: 'number', description: 'Koliko dana unapred da gleda (default 30).' },
+      },
+    },
+  },
+  {
+    feature: 'birthdays',
+    name: 'birthday_mark_greeted',
+    description:
+      'Beleži da je korisnik ČESTITAO rođendan nekome, čime se gasi večernji podsetnik u ' +
+      '19:00 za tu osobu. Koristi kad korisnik kaže "čestitao sam Nikoli", "javio sam se ' +
+      'Mrđi", "poslao sam poruku za rođendan". Ako danas slavi samo jedna osoba, dovoljno je ' +
+      'i "čestitao sam" bez imena. Ako alat vrati ambiguous=true, pitaj korisnika na koga ' +
+      'tačno misli i pozovi ponovo sa punijim imenom.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description:
+            'Ime osobe kojoj je čestitano (dovoljno i samo ime, npr. "Nikola"). Ako korisnik ' +
+            'nije rekao ime a danas slavi samo jedna osoba, prosledi prazan string.',
+        },
+      },
+      required: ['name'],
+    },
+  },
+
   // ---------- Izveštaji ----------
   {
     feature: 'reports',

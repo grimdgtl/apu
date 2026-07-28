@@ -28,10 +28,15 @@ modelu i vraća odgovor na srpskom.
   analizira i izdvaja ključne podatke (Claude vision).
 - 📝 **Izveštaji u Google Doc** — „napravi izveštaj o ovoj nedelji": skupi
   zadatke, kalendar i status sajtova, sastavi izveštaj i sačuva ga kao Doc.
+- 🎂 **Rođendani** — iz Notion baze *Rođendani* javlja ko danas slavi (sa
+  telefonom i idejom za poklon) i uveče podseća ako još nisi čestitao. Kad
+  kažeš „čestitao sam Nikoli", bot to zabeleži i prestaje da te podseća.
 - ⏰ **Proaktivni podsetnici**:
   - svaki dan u **10:00** — jutarnji pregled (vreme + sastanci + zadaci),
   - svaki dan u **10:00** — tiha provera sajtova (javi samo ako nešto ne radi),
+  - svaki dan u **11:00** — ko danas slavi rođendan,
   - svaki dan u **18:00** — pun izveštaj o stanju sajtova,
+  - svaki dan u **19:00** — podsetnik za nečestitane rođendane,
   - svakog **14. u mesecu u 10:00** — podsetnik za plaćanje poreza.
 
 ---

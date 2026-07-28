@@ -21,6 +21,7 @@ async function main() {
     mail: featureEnabled.mail,
     glasovne: featureEnabled.voice,
     monitoringSajtova: featureEnabled.siteMonitor,
+    rodjendani: featureEnabled.birthdays,
     izvestaji: featureEnabled.reports,
   });
 

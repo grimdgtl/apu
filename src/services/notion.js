@@ -181,6 +181,57 @@ export async function listActiveSites() {
   return sites;
 }
 
+// ------------------------------------------------------------- rođendani ---
+
+/**
+ * Čita sve unose iz baze Rođendani.
+ *
+ * Kolone: `Ime i prezime` (title), `Rođendan` (date), `Odnos` (select),
+ * `Telefon` (phone), `Ideja za poklon` (text), `Napomena` (text).
+ *
+ * Ne filtriramo po datumu na Notion strani — Notion ne ume da poredi samo
+ * dan i mesec (godina u datumu je godina rođenja), pa poređenje radimo u kodu.
+ */
+export async function listBirthdays() {
+  if (!featureEnabled.birthdays) {
+    throw new Error('Baza rođendana nije podešena (NOTION_BIRTHDAYS_DB_ID nedostaje).');
+  }
+
+  const people = [];
+  let cursor;
+
+  // Baza je mala, ali paginiramo za svaki slučaj.
+  do {
+    const res = await getClient().databases.query({
+      database_id: config.notion.birthdaysDbId,
+      page_size: 100,
+      ...(cursor ? { start_cursor: cursor } : {}),
+    });
+
+    for (const p of res.results) {
+      const props = p.properties || {};
+      const date = props['Rođendan']?.date?.start ?? null;
+      if (!date) continue; // bez datuma nema podsetnika
+
+      people.push({
+        id: p.id,
+        url: p.url,
+        name: titleOf(p),
+        date,
+        relation: props['Odnos']?.select?.name ?? null,
+        phone: props['Telefon']?.phone_number ?? null,
+        giftIdea: (props['Ideja za poklon']?.rich_text || []).map((t) => t.plain_text).join(''),
+        note: (props['Napomena']?.rich_text || []).map((t) => t.plain_text).join(''),
+      });
+    }
+
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
+
+  logger.debug(`Notion listBirthdays: ${people.length} osoba sa datumom`);
+  return people;
+}
+
 // --------------------------------------------------------------- pretraga ---
 
 /**

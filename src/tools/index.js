@@ -5,6 +5,11 @@ import * as mail from '../services/mail.js';
 import { checkAllSites } from '../services/monitor.js';
 import { getForecast } from '../services/weather.js';
 import { generateReport } from '../services/reports.js';
+import {
+  birthdaysToday,
+  upcomingBirthdays,
+  markGreetedByName,
+} from '../services/birthdays.js';
 import { logger } from '../logger.js';
 
 /**
@@ -44,6 +49,11 @@ const handlers = {
 
   // Izveštaji
   generate_report: (input) => generateReport(input),
+
+  // Rođendani
+  birthdays_today: () => birthdaysToday(),
+  birthdays_upcoming: (input) => upcomingBirthdays(input),
+  birthday_mark_greeted: (input) => markGreetedByName(input),
 };
 
 /**

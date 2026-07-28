@@ -7,6 +7,12 @@ import * as calendar from './calendar.js';
 import * as notion from './notion.js';
 import { checkAllSites, formatReport } from './monitor.js';
 import { getForecastLine } from './weather.js';
+import {
+  birthdaysToday,
+  ungreetedToday,
+  formatMorning,
+  formatEvening,
+} from './birthdays.js';
 
 /**
  * Scheduler — proaktivni podsetnici preko cron izraza.
@@ -15,6 +21,7 @@ import { getForecastLine } from './weather.js';
  *   2. Podsetnik za porez — 14. u mesecu u 10:00.
  *   3. Tiha provera sajtova — svaki dan u 10:00 (javi samo ako ima problema).
  *   4. Pun izveštaj o sajtovima — svaki dan u 18:00 (uvek javi).
+ *   5. Rođendani — najava u 11:00, podsetnik u 19:00 ako nisi čestitao.
  *
  * Cron izrazi i vremenska zona dolaze iz config-a.
  */
@@ -37,6 +44,17 @@ export function startScheduler() {
     );
   } else {
     logger.info('Monitoring sajtova preskočen (NOTION_CLIENTS_DB_ID nije podešen).');
+  }
+
+  if (featureEnabled.birthdays) {
+    cron.schedule(config.cron.birthdayMorning, birthdayMorning, options);
+    cron.schedule(config.cron.birthdayEvening, birthdayEvening, options);
+    logger.info(
+      `Zakazani rođendani: najava "${config.cron.birthdayMorning}", ` +
+        `podsetnik "${config.cron.birthdayEvening}" (${config.timezone})`,
+    );
+  } else {
+    logger.info('Podsetnici za rođendane preskočeni (NOTION_BIRTHDAYS_DB_ID nije podešen).');
   }
 }
 
@@ -115,6 +133,42 @@ async function siteCheck(full) {
     await sendMessage(
       '🌐 Nisam uspeo da proverim sajtove (greška u monitoringu ili Notion bazi).',
     ).catch(() => {});
+  }
+}
+
+/**
+ * 11:00 — javi ko danas slavi rođendan. Ćuti ako nema nikog.
+ */
+async function birthdayMorning() {
+  logger.info('Proveravam današnje rođendane...');
+  try {
+    const people = await birthdaysToday();
+    const message = formatMorning(people);
+    if (message) {
+      await sendMessage(message);
+    } else {
+      logger.info('Rođendani: danas niko ne slavi.');
+    }
+  } catch (err) {
+    logger.error('Greška pri proveri rođendana:', err);
+  }
+}
+
+/**
+ * 19:00 — podseti samo za one kojima još nisi čestitao.
+ */
+async function birthdayEvening() {
+  logger.info('Proveravam nečestitane rođendane...');
+  try {
+    const people = await ungreetedToday();
+    const message = formatEvening(people);
+    if (message) {
+      await sendMessage(message);
+    } else {
+      logger.info('Rođendani: nema nečestitanih — ne šaljem podsetnik.');
+    }
+  } catch (err) {
+    logger.error('Greška pri večernjem podsetniku za rođendane:', err);
   }
 }
 

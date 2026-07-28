@@ -41,6 +41,8 @@ export const config = {
     kbPageId: optional('NOTION_KB_PAGE_ID'),
     // Baza KLIJENTI — izvor liste sajtova za monitoring (kolone Klijent, Domen, Aktivan).
     clientsDbId: optional('NOTION_CLIENTS_DB_ID'),
+    // Baza Rođendani (Dashboard → Life) — podsetnici za čestitanje.
+    birthdaysDbId: optional('NOTION_BIRTHDAYS_DB_ID'),
   },
 
   google: {
@@ -101,6 +103,9 @@ export const config = {
     siteCheckSilent: optional('SITE_CHECK_SILENT_CRON', '0 10 * * *'),
     // Pun izveštaj o sajtovima (uvek javi) — svaki dan u 18:00.
     siteCheckReport: optional('SITE_CHECK_REPORT_CRON', '0 18 * * *'),
+    // Rođendani: jutarnja najava u 11:00 i večernji podsetnik u 19:00.
+    birthdayMorning: optional('BIRTHDAY_MORNING_CRON', '0 11 * * *'),
+    birthdayEvening: optional('BIRTHDAY_EVENING_CRON', '0 19 * * *'),
   },
 };
 
@@ -124,6 +129,8 @@ export const featureEnabled = {
   voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
   // Monitoring sajtova traži Notion ključ i ID KLIJENTI baze.
   siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
+  // Podsetnici za rođendane traže Notion ključ i ID baze Rođendani.
+  birthdays: Boolean(config.notion.apiKey && config.notion.birthdaysDbId),
   // Vremenska prognoza (Open-Meteo) ne traži ključ — uvek dostupna.
   weather: true,
   // Generisanje izveštaja u Google Doc traži Drive (isti OAuth kao kalendar).

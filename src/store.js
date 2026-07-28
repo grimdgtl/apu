@@ -12,6 +12,7 @@ import { logger } from './logger.js';
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const FILE = path.join(DATA_DIR, 'histories.json');
+const STATE_FILE = path.join(DATA_DIR, 'state.json');
 
 /**
  * Učitava istoriju sa diska. Ključ je chatId kao string.
@@ -45,5 +46,32 @@ export function saveHistories(histories) {
     fs.renameSync(tmp, FILE);
   } catch (err) {
     logger.error('Ne mogu da sačuvam istoriju razgovora:', err.message);
+  }
+}
+
+// ----------------------------------------------------------------- stanje ---
+
+/**
+ * Prosto trajno stanje (obični JSON objekat) — odvojeno od istorije razgovora
+ * da brisanje istorije (/reset) ne pobriše i zabeleške tipa "čestitao sam X".
+ */
+export function loadState() {
+  try {
+    if (!fs.existsSync(STATE_FILE)) return {};
+    return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+  } catch (err) {
+    logger.error('Ne mogu da učitam stanje:', err.message);
+    return {};
+  }
+}
+
+export function saveState(state) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const tmp = `${STATE_FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(state));
+    fs.renameSync(tmp, STATE_FILE);
+  } catch (err) {
+    logger.error('Ne mogu da sačuvam stanje:', err.message);
   }
 }

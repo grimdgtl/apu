@@ -103,6 +103,7 @@ bot.command('status', (ctx) => {
     ['Email', featureEnabled.mail, 'IMAP_USER + IMAP_PASSWORD'],
     ['Glasovne poruke', featureEnabled.voice, 'OPENAI_API_KEY ili GROQ_API_KEY'],
     ['Monitoring sajtova', featureEnabled.siteMonitor, 'NOTION_API_KEY + NOTION_CLIENTS_DB_ID'],
+    ['Rođendani', featureEnabled.birthdays, 'NOTION_API_KEY + NOTION_BIRTHDAYS_DB_ID'],
     ['Vremenska prognoza', featureEnabled.weather, ''],
     ['Izveštaji (Google Doc)', featureEnabled.reports, 'GOOGLE_CLIENT_ID/SECRET + REFRESH_TOKEN'],
   ];
@@ -115,6 +116,11 @@ bot.command('status', (ctx) => {
   if (featureEnabled.siteMonitor) {
     extra.push(
       `Provere sajtova: tiho "${config.cron.siteCheckSilent}", izveštaj "${config.cron.siteCheckReport}"`,
+    );
+  }
+  if (featureEnabled.birthdays) {
+    extra.push(
+      `Rođendani: najava "${config.cron.birthdayMorning}", podsetnik "${config.cron.birthdayEvening}"`,
     );
   }
 
