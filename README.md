@@ -54,6 +54,8 @@ bira koje alate da pozove i izvrši radnju.
 | **Google Calendar** | `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_event` |
 | **Mejl** | `mail_list_unread`, `mail_save_draft`, `mail_send` |
 | **Dnevna checklista** | `checklist_get`, `checklist_mark`, `checklist_create_day` |
+| **Dnevnik** | `dnevnik_get`, `dnevnik_write` |
+| **To-do lista (licno)** | `todo_list`, `todo_add`, `todo_set_status` |
 | **Prognoza** | `weather_get` |
 | **Monitoring sajtova** | `monitor_check_sites` |
 | **Izveštaji** | `generate_report` (piše izveštaj u Google Doc) |
@@ -181,6 +183,8 @@ Ne treba ključ (Open-Meteo). Podesi lokaciju: `WEATHER_LOCATION`, `WEATHER_LAT`
 | `NOTION_KB_PAGE_ID` | | — | Stranica Knowledge Base |
 | `NOTION_CLIENTS_DB_ID` | | — | Baza KLIJENTI (monitoring) |
 | `NOTION_CHECKLIST_DB_ID` | | — | Baza Dnevna checklista (Life) |
+| `NOTION_DNEVNIK_DB_ID` | | — | Baza Dnevnik (Life) |
+| `NOTION_TODO_DB_ID` | | — | Baza To-do lista (Life) |
 | `GOOGLE_CLIENT_ID` | | — | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | | — | OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | | `http://localhost:3000/oauth2callback` | Za auth skriptu |
@@ -206,6 +210,10 @@ Ne treba ključ (Open-Meteo). Podesi lokaciju: `WEATHER_LOCATION`, `WEATHER_LAT`
 | `MAIL_CHECK_CRON` | | `0 8-22 * * *` | Provera nepročitanih mejlova |
 | `CHECKLIST_CREATE_CRON` | | `0 5 * * *` | Kreiranje reda u checklisti |
 | `CHECKLIST_REMINDER_CRON` | | `30 21 * * *` | Podsetnik za checklistu |
+| `CHECKLIST_PRAISE_CRON` | | `0 23 * * *` | Cestitka za uspesan dan |
+| `CHECKLIST_PRAISE_THRESHOLD` | | `70` | Prag (%) za cestitku |
+| `WEEKLY_SUMMARY_CRON` | | `0 22 * * 0` | Nedeljna pohvala |
+| `FLOWERS_TASK_CRON` | | `0 5 * * 1` | Nedeljni zadatak za cvece |
 | `DATA_DIR` | | `./data` | Gde se čuva istorija razgovora |
 
 > **`TIMEZONE` ≠ lokacija prognoze.** `TIMEZONE` je vremenska zona (ista za celu Srbiju),
@@ -293,7 +301,11 @@ Sve ostalo pišeš prirodno:
 | Svaki dan **10:00** | Tiha provera sajtova — javlja **samo ako ima problema** |
 | Svaki dan **18:00** | Pun izveštaj o dostupnosti sajtova |
 | Svaki dan **5:00** | Kreira nov red u dnevnoj checklisti (datum + dan u nedelji) |
+| Svaki dan **5:00** | Kreira i zapis u Dnevniku (povezan sa checklistom) |
+| Ponedeljak **5:00** | Kreira nedeljni zadatak za cvece (rok: nedelja) |
 | Svaki dan **21:30** | Podsetnik da popuniš checklistu + napredak teretane (cilj 3×/nedelji) |
+| Svaki dan **23:00** | Cestitka ako je checklista popunjena preko 70% (inace cuti) |
+| Nedelja **22:00** | Nedeljna pohvala: skor, najbolji dan, teretana vs. cilj |
 | **14.** u mesecu, 10:00 | Podsetnik za plaćanje poreza |
 
 > **Provera mejlova ne spamuje.** Bot pamti (na disku) o kojim je mejlovima već javio,
