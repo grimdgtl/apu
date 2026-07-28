@@ -280,7 +280,7 @@ Sve ostalo pišeš prirodno:
 
 | Kada | Šta |
 |---|---|
-| Svaki dan **10:00** | Jutarnji pregled: prognoza + današnji sastanci + otvoreni zadaci |
+| Svaki dan **10:00** | Jutarnji pregled: prognoza + današnji sastanci + otvoreni zadaci + **nepročitani mejlovi** (koliko ih je, od koga i naslov) |
 | **Svaki sat, 8–22** | Provera nepročitanih mejlova — javlja **samo o novima** |
 | Svaki dan **10:00** | Tiha provera sajtova — javlja **samo ako ima problema** |
 | Svaki dan **18:00** | Pun izveštaj o dostupnosti sajtova |

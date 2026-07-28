@@ -121,6 +121,20 @@ async function morningBriefing() {
       );
     }
 
+    if (featureEnabled.mail) {
+      try {
+        const unread = await mail.listUnread({ limit: 15 });
+        const sazeto = unread.map((m) => ({ od: m.from, naslov: m.subject }));
+        parts.push(
+          `Nepročitani mejlovi (ukupno ${unread.length}):\n${JSON.stringify(sazeto, null, 2)}`,
+        );
+        // Da satna provera u 10:00 ne javi iste mejlove još jednom.
+        saveState('notified-mail', unread.map((m) => m.uid));
+      } catch (err) {
+        logger.error('Ne mogu da pročitam mejlove za jutarnji pregled:', err.message);
+      }
+    }
+
     const raw = parts.length
       ? parts.join('\n\n')
       : 'Nema dostupnih podataka iz kalendara ni Notion-a.';
@@ -128,7 +142,9 @@ async function morningBriefing() {
     const text = await generateText(
       `Napravi kratak, prijateljski jutarnji pregled dana na srpskom na osnovu ovih podataka. ` +
         `Ako ima prognoze, počni jednom rečenicom o vremenu. Zatim istakni sastanke po vremenu ` +
-        `i najvažnije zadatke. Budi konkretan i sažet.\n\n${raw}`,
+        `i najvažnije zadatke. Na kraju obavezno navedi nepročitane mejlove: koliko ih ima i ` +
+        `za svaki pošiljaoca i naslov (kao listu). Ako ih nema, reci to jednom rečenicom. ` +
+        `Budi konkretan i sažet.\n\n${raw}`,
     );
 
     await sendMessage(`☀️ Dobro jutro! Evo pregleda za danas:\n\n${text}`);
