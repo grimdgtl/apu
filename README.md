@@ -245,16 +245,23 @@ Aktivne integracije: { notionZadaci: true, notionKb: true, calendar: true,
 Bot je **pozadinski worker** — ne sluša ni na jednom HTTP portu.
 
 1. **New Resource → Application**, izvor GitHub → repo, grana `main`.
-2. **Build Pack: Dockerfile**.
+2. **Build Pack: Nixpacks** (podrazumevano). Obavezno dodaj promenljivu
+   **`NIXPACKS_NODE_VERSION=22`** — bez nje Nixpacks gradi sa Node 18, koji je EOL.
 3. **Bez domena i porta.** Ostavi Ports/Domains prazno i **isključi Health Check**
    (nema HTTP endpoint-a; uključen health check obara kontejner u petlju).
 4. **Storages → Volume Mount** → *Name:* `apu-data`, *Destination Path:* `/app/data`,
    **Source Path prazan**.
    > Bez volumena bot **zaboravlja istoriju razgovora** pri svakom redeployu.
-   > Mora **Volume Mount**, ne Directory Mount — kontejner radi kao korisnik `node`
-   > i na bind mount-u nema pravo pisanja.
+   > Radni direktorijum je `/app`, pa podrazumevani `DATA_DIR=./data` završava
+   > upravo u `/app/data` — možeš ga i izostaviti iz env-a.
 5. **Environment Variables** — prekopiraj sve iz `.env` (fajl nije u gitu).
 6. **Deploy.**
+
+> **Alternativa — Dockerfile.** U repou postoji `Dockerfile` (Node 22, eksplicitan
+> `DATA_DIR`, radi kao ne-root korisnik). Ako pređeš na **Build Pack: Dockerfile**,
+> imaj u vidu da postojeći volume može biti u vlasništvu `root`-a (jer je Nixpacks
+> build radio kao root), pa ne-root proces neće moći da piše u njega — `EACCES`.
+> Tada ili promeni vlasništvo nad volumenom, ili ukloni `USER node` iz Dockerfile-a.
 
 > Otvaranje auto-generisanog `sslip.io` URL-a daje **Bad Gateway** — to je očekivano,
 > bot nema web sučelje. Status se proverava kroz Logs i kroz Telegram.
