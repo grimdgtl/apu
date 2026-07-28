@@ -43,6 +43,10 @@ export const config = {
     clientsDbId: optional('NOTION_CLIENTS_DB_ID'),
     // Dnevna checklista (Life stranica) — navike po danu.
     checklistDbId: optional('NOTION_CHECKLIST_DB_ID'),
+    // Dnevnik (Life stranica) — raspoloženje, energija, ključna reč.
+    dnevnikDbId: optional('NOTION_DNEVNIK_DB_ID'),
+    // To-do lista (Life stranica) — lični zadaci.
+    todoDbId: optional('NOTION_TODO_DB_ID'),
   },
 
   google: {
@@ -90,6 +94,9 @@ export const config = {
     locationName: optional('WEATHER_LOCATION', 'Novi Sad'),
   },
 
+  // Prag (%) iznad kojeg bot šalje čestitku u 23:00.
+  checklistPraiseThreshold: Number(optional('CHECKLIST_PRAISE_THRESHOLD', '70')),
+
   // Monitoring sajtova — pragovi za "pao" (timeout) i "sporo".
   monitor: {
     timeoutMs: Number(optional('SITE_MONITOR_TIMEOUT_MS', '15000')),
@@ -109,6 +116,12 @@ export const config = {
     checklistCreate: optional('CHECKLIST_CREATE_CRON', '0 5 * * *'),
     // Podsetnik da popuniš checklistu — svako veče u 21:30.
     checklistReminder: optional('CHECKLIST_REMINDER_CRON', '30 21 * * *'),
+    // Čestitka u 23:00 ako je dan popunjen preko 70%.
+    checklistPraise: optional('CHECKLIST_PRAISE_CRON', '0 23 * * *'),
+    // Nedeljna pohvala — nedeljom u 22:00.
+    weeklySummary: optional('WEEKLY_SUMMARY_CRON', '0 22 * * 0'),
+    // Nedeljni zadatak "cveće za Sofiju" — ponedeljkom u 5:00.
+    flowersTask: optional('FLOWERS_TASK_CRON', '0 5 * * 1'),
   },
 };
 
@@ -134,6 +147,8 @@ export const featureEnabled = {
   siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
   // Dnevna checklista traži Notion ključ i ID te baze.
   checklist: Boolean(config.notion.apiKey && config.notion.checklistDbId),
+  dnevnik: Boolean(config.notion.apiKey && config.notion.dnevnikDbId),
+  todo: Boolean(config.notion.apiKey && config.notion.todoDbId),
   // Vremenska prognoza (Open-Meteo) ne traži ključ — uvek dostupna.
   weather: true,
   // Generisanje izveštaja u Google Doc traži Drive (isti OAuth kao kalendar).

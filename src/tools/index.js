@@ -5,6 +5,8 @@ import * as mail from '../services/mail.js';
 import { checkAllSites } from '../services/monitor.js';
 import { getForecast } from '../services/weather.js';
 import * as checklist from '../services/checklist.js';
+import * as dnevnik from '../services/dnevnik.js';
+import * as todo from '../services/todo.js';
 import { generateReport } from '../services/reports.js';
 import { logger } from '../logger.js';
 
@@ -26,6 +28,15 @@ const handlers = {
   checklist_get: (input) => checklist.stanje(input.datum),
   checklist_mark: (input) => checklist.oznaci(input),
   checklist_create_day: (input) => checklist.kreirajRed(input.datum),
+
+  // Dnevnik
+  dnevnik_get: (input) => dnevnik.stanje(input.datum),
+  dnevnik_write: (input) => dnevnik.upisi(input),
+
+  // To-do lista (lični zadaci)
+  todo_list: (input) => todo.lista(input),
+  todo_add: (input) => todo.dodaj(input),
+  todo_set_status: (input) => todo.promeniStatus(input),
 
   // Google Drive
   drive_search: (input) => drive.searchFiles(input),

@@ -59,7 +59,7 @@ export function imeDana(iso) {
 }
 
 /** Ponedeljak–nedelja opseg koji sadrži dati datum. */
-function nedeljaOko(iso) {
+export function nedeljaOko(iso) {
   const d = new Date(`${iso}T12:00:00`);
   const pomeraj = (d.getDay() + 6) % 7; // 0 = ponedeljak
   const start = new Date(d);
@@ -203,5 +203,40 @@ export async function teretanaOveNedelje(datum = danasISO()) {
     cilj,
     ostalo: Math.max(0, cilj - bilo),
     ispunjen: bilo >= cilj,
+  };
+}
+
+/**
+ * Nedeljni rezime (pon–ned): koliko je dana popunjeno, prosečan skor i teretana.
+ * Koristi ga nedeljna pohvala u nedelju uveče.
+ */
+export async function nedeljniRezime(datum = danasISO()) {
+  const { start, end } = nedeljaOko(datum);
+  const res = await getClient().databases.query({
+    database_id: config.notion.checklistDbId,
+    filter: {
+      and: [
+        { property: 'Datum', date: { on_or_after: start } },
+        { property: 'Datum', date: { on_or_before: end } },
+      ],
+    },
+    page_size: 10,
+  });
+
+  const dani = res.results.map(redUObjekat);
+  const ukupnoStavki = dani.reduce((s, d) => s + d.urađeno, 0);
+  const maksimum = dani.length * SVE_STAVKE.length;
+  const procenat = maksimum ? Math.round((ukupnoStavki / maksimum) * 100) : 0;
+  const najbolji = dani.slice().sort((a, b) => b.urađeno - a.urađeno)[0] ?? null;
+
+  return {
+    odPonedeljka: start,
+    doNedelje: end,
+    brojDana: dani.length,
+    ukupnoStavki,
+    maksimum,
+    procenat,
+    najboljiDan: najbolji ? { dan: najbolji.dan, skor: najbolji.urađeno } : null,
+    teretana: await teretanaOveNedelje(datum),
   };
 }

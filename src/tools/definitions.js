@@ -178,6 +178,99 @@ const definitions = [
     },
   },
 
+  // ---------- Dnevnik ----------
+  {
+    feature: 'dnevnik',
+    name: 'dnevnik_get',
+    description:
+      'Čita zapis u Dnevniku za dati datum (default danas): raspoloženje, energija, ključna reč ' +
+      'i lista polja koja su još prazna.',
+    input_schema: {
+      type: 'object',
+      properties: { datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' } },
+    },
+  },
+  {
+    feature: 'dnevnik',
+    name: 'dnevnik_write',
+    description:
+      'Upisuje dnevnik za dati dan. Ako zapis ne postoji, kreira ga. Upiši samo ona polja koja ' +
+      'je korisnik zaista pomenuo.\n' +
+      'raspolozenje: Odlično | Dobro | Neutralno | Loše | Teško\n' +
+      'energija: Visoka | Srednja | Niska\n' +
+      'kljucnaRec: kratka reč/fraza koja opisuje dan (npr. "fokusiran", "naporan dan").\n' +
+      'VAŽNO: rezultat sadrži polje "prazno" — ako ono nije prazno, OBAVEZNO pitaj korisnika ' +
+      'za ta polja (npr. "Kakva ti je bila energija danas — visoka, srednja ili niska?"). ' +
+      'Ne izmišljaj vrednosti koje korisnik nije rekao.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        raspolozenje: {
+          type: 'string',
+          enum: ['Odlično', 'Dobro', 'Neutralno', 'Loše', 'Teško'],
+          description: 'Kako se osećao.',
+        },
+        energija: {
+          type: 'string',
+          enum: ['Visoka', 'Srednja', 'Niska'],
+          description: 'Nivo energije.',
+        },
+        kljucnaRec: { type: 'string', description: 'Ključna reč ili kratka fraza za taj dan.' },
+        datum: { type: 'string', description: 'YYYY-MM-DD (default: danas).' },
+      },
+    },
+  },
+
+  // ---------- To-do lista (lični zadaci) ----------
+  {
+    feature: 'todo',
+    name: 'todo_list',
+    description:
+      'Vraća lične zadatke sa To-do liste (Life stranica). Podrazumevano samo otvorene. ' +
+      'Ovo je LIČNA lista (kućni poslovi, ljudi, zdravlje) — za poslovne zadatke koristi ' +
+      'notion_list_tasks.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Not started', 'In progress', 'Done'] },
+        limit: { type: 'number', description: 'Maksimalan broj (default 25).' },
+      },
+    },
+  },
+  {
+    feature: 'todo',
+    name: 'todo_add',
+    description: 'Dodaje nov lični zadatak na To-do listu (Life stranica).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        zadatak: { type: 'string', description: 'Naziv zadatka.' },
+        oblast: {
+          type: 'string',
+          enum: ['Zdravlje', 'Kuća', 'Finansije', 'Ljudi', 'Učenje', 'Ostalo'],
+        },
+        prioritet: { type: 'string', enum: ['Visok', 'Srednji', 'Nizak'] },
+        rok: { type: 'string', description: 'Rok kao YYYY-MM-DD (opciono).' },
+      },
+      required: ['zadatak'],
+    },
+  },
+  {
+    feature: 'todo',
+    name: 'todo_set_status',
+    description:
+      'Menja status ličnog zadatka — npr. kad korisnik kaže "kupio sam cveće" postavi na "Done". ' +
+      'Prvo pozovi todo_list da nađeš ID zadatka.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        zadatakId: { type: 'string', description: 'ID zadatka (iz todo_list).' },
+        status: { type: 'string', enum: ['Not started', 'In progress', 'Done'] },
+      },
+      required: ['zadatakId', 'status'],
+    },
+  },
+
   // ---------- Google Drive ----------
   {
     feature: 'drive',

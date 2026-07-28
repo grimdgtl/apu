@@ -9,6 +9,8 @@ import { checkAllSites, formatReport } from './monitor.js';
 import { getForecastLine } from './weather.js';
 import * as mail from './mail.js';
 import * as checklist from './checklist.js';
+import * as dnevnik from './dnevnik.js';
+import * as todo from './todo.js';
 import { loadState, saveState } from '../store.js';
 
 /**
@@ -50,31 +52,122 @@ export function startScheduler() {
   }
 
   if (featureEnabled.checklist) {
-    cron.schedule(config.cron.checklistCreate, checklistNoviDan, options);
+    cron.schedule(config.cron.checklistCreate, noviDan, options);
     cron.schedule(config.cron.checklistReminder, checklistPodsetnik, options);
+    cron.schedule(config.cron.checklistPraise, checklistCestitka, options);
+    cron.schedule(config.cron.weeklySummary, nedeljnaPohvala, options);
     logger.info(
-      `Zakazana checklista: nov red "${config.cron.checklistCreate}", ` +
-        `podsetnik "${config.cron.checklistReminder}" (${config.timezone})`,
+      `Zakazana checklista: nov dan "${config.cron.checklistCreate}", ` +
+        `podsetnik "${config.cron.checklistReminder}", čestitka "${config.cron.checklistPraise}", ` +
+        `nedeljna pohvala "${config.cron.weeklySummary}" (${config.timezone})`,
     );
   } else {
     logger.info('Dnevna checklista preskočena (NOTION_CHECKLIST_DB_ID nije podešen).');
   }
+
+  if (featureEnabled.todo) {
+    cron.schedule(config.cron.flowersTask, cveceZadatak, options);
+    logger.info(`Zakazan nedeljni zadatak (cveće): "${config.cron.flowersTask}" (${config.timezone})`);
+  } else {
+    logger.info('To-do lista preskočena (NOTION_TODO_DB_ID nije podešen).');
+  }
 }
 
 /**
- * Svako jutro u 5:00 — napravi red za današnji dan (ako već ne postoji).
- * Tih je: ne šalje poruku, samo priprema tabelu za popunjavanje.
+ * Svako jutro u 5:00 — pripremi dan: red u checklisti i zapis u dnevniku,
+ * međusobno povezane. Tiho je (bez poruke), samo priprema tabele.
  */
-async function checklistNoviDan() {
+async function noviDan() {
   try {
     const red = await checklist.kreirajRed();
-    if (red.većPostojao) {
-      logger.info(`Checklista: red za ${red.datum} je već postojao.`);
-    } else {
-      logger.info(`Checklista: napravljen red za ${red.datum} (${red.dan}).`);
+    logger.info(
+      red.većPostojao
+        ? `Checklista: red za ${red.datum} je već postojao.`
+        : `Checklista: napravljen red za ${red.datum} (${red.dan}).`,
+    );
+
+    if (featureEnabled.dnevnik) {
+      const zapis = await dnevnik.kreirajRed(red.datum, red.id);
+      logger.info(
+        zapis.većPostojao
+          ? `Dnevnik: zapis za ${red.datum} je već postojao.`
+          : `Dnevnik: napravljen zapis za ${red.datum}.`,
+      );
     }
   } catch (err) {
-    logger.error('Greška pri kreiranju reda u checklisti:', err.message);
+    logger.error('Greška pri pripremi novog dana:', err.message);
+  }
+}
+
+/**
+ * Ponedeljkom u 5:00 — nedeljni zadatak "cveće za Sofiju" (rok: nedelja).
+ */
+async function cveceZadatak() {
+  try {
+    const z = await todo.kreirajCvece();
+    if (z.većPostojao) {
+      logger.info('Cveće: zadatak za ovu nedelju je već postojao.');
+      return;
+    }
+    await sendMessage(
+      `💐 Nova nedelja — dodao sam ti zadatak: „${z.zadatak}" (rok: ${z.rok}).\n` +
+        'Podsetiću te dok ne bude gotov.',
+    );
+  } catch (err) {
+    logger.error('Greška pri kreiranju zadatka za cveće:', err.message);
+  }
+}
+
+/**
+ * U 23:00 — čestitka ako je dan popunjen preko praga (default 70%).
+ * Ako nije, ćuti (nema prozivanja).
+ */
+async function checklistCestitka() {
+  try {
+    const s = await checklist.stanje();
+    if (!s.postoji) return;
+
+    const procenat = Math.round((s.urađeno / s.ukupno) * 100);
+    if (procenat <= config.checklistPraiseThreshold) {
+      logger.info(`Čestitka preskočena — ${procenat}% (prag ${config.checklistPraiseThreshold}%).`);
+      return;
+    }
+
+    await sendMessage(
+      `🎉 Čestitam, uspeo si! Danas si bolji čovek.\n\n` +
+        `Skor za ${s.dan.toLowerCase()}: ${s.urađeno}/${s.ukupno} (${procenat}%).`,
+    );
+    logger.info(`Čestitka poslata — ${procenat}%.`);
+  } catch (err) {
+    logger.error('Greška pri slanju čestitke:', err.message);
+  }
+}
+
+/**
+ * Nedeljom uveče — pohvala za celu nedelju (pon–ned): skor, najbolji dan,
+ * teretana u odnosu na cilj. Tekst piše Claude na osnovu stvarnih brojeva.
+ */
+async function nedeljnaPohvala() {
+  try {
+    const r = await checklist.nedeljniRezime();
+    const t = r.teretana;
+
+    const text = await generateText(
+      'Napiši kratku, toplu poruku pohvale korisniku za proteklu nedelju, na srpskom, ' +
+        'latinicom, bez Markdown formatiranja. Budi konkretan i koristi ISKLJUČIVO brojeve ' +
+        'ispod — ne izmišljaj. Ako cilj teretane nije ispunjen, ohrabri ga za sledeću nedelju ' +
+        'bez prozivanja. Maksimalno 5 rečenica.\n\n' +
+        `Nedelja: ${r.odPonedeljka} do ${r.doNedelje}\n` +
+        `Popunjenih dana: ${r.brojDana}\n` +
+        `Ukupno označenih stavki: ${r.ukupnoStavki} od ${r.maksimum} (${r.procenat}%)\n` +
+        `Najbolji dan: ${r.najboljiDan ? `${r.najboljiDan.dan} (${r.najboljiDan.skor}/15)` : 'nema podataka'}\n` +
+        `Teretana: ${t.bilo} od ${t.cilj} puta (cilj ${t.ispunjen ? 'ispunjen' : 'nije ispunjen'})`,
+    );
+
+    await sendMessage(`🏁 Kraj nedelje!\n\n${text}`);
+    logger.info(`Nedeljna pohvala poslata (${r.procenat}%, teretana ${t.bilo}/${t.cilj}).`);
+  } catch (err) {
+    logger.error('Greška pri slanju nedeljne pohvale:', err.message);
   }
 }
 
@@ -99,9 +192,40 @@ async function checklistPodsetnik() {
       ? `💪 Teretana ove nedelje: ${t.bilo}/${t.cilj} — cilj ispunjen!`
       : `💪 Teretana ove nedelje: ${t.bilo}/${t.cilj} — fali još ${t.ostalo}.`;
 
+    // Dnevnik — javi samo ako nije popunjen za taj dan.
+    let dnevnikLinija = '';
+    if (featureEnabled.dnevnik) {
+      try {
+        const d = await dnevnik.stanje();
+        if (!d.postoji) {
+          dnevnikLinija = '\n\n📓 Dnevnik za danas još nije popunjen.';
+        } else if (!d.popunjen) {
+          dnevnikLinija = `\n\n📓 U dnevniku fali: ${d.prazno.join(', ')}.`;
+        }
+      } catch (err) {
+        logger.error('Ne mogu da pročitam dnevnik za podsetnik:', err.message);
+      }
+    }
+
+    // Nedeljni zadatak za cveće — javi ako još nije gotov.
+    let cveceLinija = '';
+    if (featureEnabled.todo) {
+      try {
+        const z = await todo.nadjiCvece();
+        if (z && z.status !== 'Done') {
+          cveceLinija = `\n\n💐 Još nisi kupio cveće Sofiji (rok: ${z.rok}).`;
+        }
+      } catch (err) {
+        logger.error('Ne mogu da proverim zadatak za cveće:', err.message);
+      }
+    }
+
+    const dodaci = `${dnevnikLinija}${cveceLinija}`;
+
     if (s.fali.length === 0) {
       await sendMessage(
-        `📋 Svaka čast — sve stavke za danas su označene (${s.urađeno}/${s.ukupno}). ✅\n\n${teretanaLinija}`,
+        `📋 Svaka čast — sve stavke za danas su označene (${s.urađeno}/${s.ukupno}). ✅\n\n` +
+          `${teretanaLinija}${dodaci}`,
       );
       return;
     }
@@ -109,7 +233,7 @@ async function checklistPodsetnik() {
     const lista = s.fali.map((x) => `• ${x}`).join('\n');
     await sendMessage(
       `📋 Podsetnik: popuni dnevnu checklistu (${s.dan}).\n\n` +
-        `Trenutno ${s.urađeno}/${s.ukupno}. Neoznačeno:\n${lista}\n\n${teretanaLinija}\n\n` +
+        `Trenutno ${s.urađeno}/${s.ukupno}. Neoznačeno:\n${lista}\n\n${teretanaLinija}${dodaci}\n\n` +
         'Samo mi napiši šta si uradio (npr. „popio sam kreatin, nisam pio kolu").',
     );
   } catch (err) {
