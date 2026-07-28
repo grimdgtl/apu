@@ -8,13 +8,13 @@ You talk to it in plain language — by **text**, **voice message** or **photo**
 decides which tools to call and performs the action. It replies in Serbian.
 
 ```
-🎤 / 💬 / 📷  →  Telegram  →  Claude (agentic loop)  →  tools  →  reply
-                                                        ├─ Notion (tasks, notes, habits, journal)
-                                                        ├─ Google Calendar
-                                                        ├─ Google Drive
-                                                        ├─ Email (IMAP + Resend)
-                                                        ├─ Weather
-                                                        └─ Website monitoring
+Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →  reply
+                                                                ├─ Notion (tasks, notes, habits, journal)
+                                                                ├─ Google Calendar
+                                                                ├─ Google Drive
+                                                                ├─ Email (IMAP + Resend)
+                                                                ├─ Weather
+                                                                └─ Website monitoring
 ```
 
 ---
@@ -41,9 +41,9 @@ decides which tools to call and performs the action. It replies in Serbian.
 
 | Type | Behaviour |
 |---|---|
-| 💬 **Text** | Regular message. |
-| 🎤 **Voice** | Transcribed with Whisper, then handled exactly like text. The bot **replies in text**, never with audio. |
-| 📷 **Image** | Sent to Claude for analysis (e.g. "extract the total from this receipt"). Supported: JPEG, PNG, GIF, WebP — as a photo or as a file. |
+| **Text** | Regular message. |
+| **Voice** | Transcribed with Whisper, then handled exactly like text. The bot **replies in text**, never with audio. |
+| **Image** | Sent to Claude for analysis (e.g. "extract the total from this receipt"). Supported: JPEG, PNG, GIF, WebP — as a photo or as a file. |
 
 ### Tools available to Claude
 
@@ -133,7 +133,7 @@ Pick the model with `ANTHROPIC_MODEL` (defaults to `claude-sonnet-5`; use
 ### 3. Notion
 1. Create an **internal integration**: <https://www.notion.so/my-integrations> →
    **`NOTION_API_KEY`**.
-   - ⚠️ The integration must live in the **same workspace** as your pages.
+   - The integration must live in the **same workspace** as your pages.
    - Capabilities: **Read**, **Update**, **Insert** content.
 2. Grant it access: *integration → **Content access** → add the parent page*
    (access is inherited by everything below it).
@@ -193,9 +193,9 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 
 | Variable | Required | Default | Description |
 |---|:---:|---|---|
-| `TELEGRAM_BOT_TOKEN` | ✅ | — | Token from @BotFather |
-| `TELEGRAM_OWNER_CHAT_ID` | ✅ | — | Your chat ID (whitelist) |
-| `ANTHROPIC_API_KEY` | ✅ | — | Anthropic API key |
+| `TELEGRAM_BOT_TOKEN` | Yes | — | Token from @BotFather |
+| `TELEGRAM_OWNER_CHAT_ID` | Yes | — | Your chat ID (whitelist) |
+| `ANTHROPIC_API_KEY` | Yes | — | Anthropic API key |
 | `ANTHROPIC_MODEL` | | `claude-sonnet-5` | Model |
 | `NOTION_API_KEY` | | — | Internal Notion integration token |
 | `NOTION_TASKS_DB_ID` | | — | Work task board |
