@@ -83,9 +83,9 @@ export const config = {
 
   // Vremenska prognoza (Open-Meteo, bez ključa). Podrazumevano Beograd.
   weather: {
-    latitude: Number(optional('WEATHER_LAT', '44.7866')),
-    longitude: Number(optional('WEATHER_LON', '20.4489')),
-    locationName: optional('WEATHER_LOCATION', 'Beograd'),
+    latitude: Number(optional('WEATHER_LAT', '45.2671')),
+    longitude: Number(optional('WEATHER_LON', '19.8335')),
+    locationName: optional('WEATHER_LOCATION', 'Novi Sad'),
   },
 
   // Monitoring sajtova — pragovi za "pao" (timeout) i "sporo".
