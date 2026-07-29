@@ -15,6 +15,34 @@ function ensureConfigured() {
   }
 }
 
+/**
+ * Čisti vrednost koja ide u JEDNO zaglavlje poruke.
+ *
+ * Prelom reda u naslovu ili adresi je ubacivanje zaglavlja: "Racun\r\nBcc:
+ * neko@drugde" bi u sirovoj poruci postalo pravi Bcc i tiho poslalo kopiju.
+ * Pošto tekst ovde stiže od modela (a model čita tuđe mejlove), ovo mora da
+ * se seče u kodu, ne u promptu.
+ */
+function headerSafe(value, label) {
+  if (value === undefined || value === null) return value;
+  const text = String(value);
+  if (/[\r\n]/.test(text)) {
+    logger.warn(`Mail: uklonjen prelom reda iz zaglavlja "${label}" (pokušaj ubacivanja?).`);
+  }
+  // Prelome zamenjujemo razmakom da naslov ostane čitljiv.
+  return text.replace(/[\r\n]+/g, ' ').trim();
+}
+
+/** Sva zaglavlja jedne poruke odjednom; telo se NE dira. */
+function sanitizeHeaders({ to, cc, subject, inReplyTo }) {
+  return {
+    to: headerSafe(to, 'To'),
+    cc: headerSafe(cc, 'Cc'),
+    subject: headerSafe(subject, 'Subject'),
+    inReplyTo: headerSafe(inReplyTo, 'In-Reply-To'),
+  };
+}
+
 function makeImapClient() {
   return new ImapFlow({
     host: config.mail.imap.host,
@@ -69,15 +97,18 @@ export async function listUnread({ limit = 10 } = {}) {
  * From adresa je u oba slučaja tvoja (config.mail.from).
  */
 export async function sendMail({ to, subject, body, cc, inReplyTo }) {
-  const fromAddress = config.mail.from.address || config.mail.smtp.user;
+  const fromAddress = headerSafe(config.mail.from.address || config.mail.smtp.user, 'From');
   const from = config.mail.from.name
-    ? `${config.mail.from.name} <${fromAddress}>`
+    ? `${headerSafe(config.mail.from.name, 'From')} <${fromAddress}>`
     : fromAddress;
 
+  const čisto = sanitizeHeaders({ to, cc, subject, inReplyTo });
+  if (!čisto.to) throw new Error('Nedostaje primalac (to).');
+
   if (config.mail.resendApiKey) {
-    return sendViaResend({ from, to, subject, body, cc, inReplyTo });
+    return sendViaResend({ from, body, ...čisto });
   }
-  return sendViaSmtp({ from, to, subject, body, cc, inReplyTo });
+  return sendViaSmtp({ from, body, ...čisto });
 }
 
 /** Slanje preko Resend HTTP API-ja (port 443). */
@@ -142,8 +173,11 @@ async function sendViaSmtp({ from, to, subject, body, cc, inReplyTo }) {
  */
 export async function saveDraft({ to, subject, body, cc }) {
   ensureConfigured();
-  const fromAddress = config.mail.from.address || config.mail.smtp.user;
-  const raw = buildRawMessage({ from: fromAddress, to, cc, subject, body });
+  const fromAddress = headerSafe(config.mail.from.address || config.mail.smtp.user, 'From');
+  const čisto = sanitizeHeaders({ to, cc, subject });
+  if (!čisto.to) throw new Error('Nedostaje primalac (to).');
+
+  const raw = buildRawMessage({ from: fromAddress, body, ...čisto });
 
   const imap = makeImapClient();
   await imap.connect();
@@ -160,12 +194,19 @@ export async function saveDraft({ to, subject, body, cc }) {
   }
 }
 
+/**
+ * Sastavlja sirovu RFC 822 poruku za IMAP draft.
+ * Vrednosti zaglavlja MORAJU proći kroz sanitizeHeaders pre ovoga — ovde se
+ * radi još jedno sečenje kao pojas i tregeri, jer je ovo mesto gde bi prelom
+ * reda postao pravo zaglavlje.
+ */
 function buildRawMessage({ from, to, cc, subject, body }) {
+  const h = (v) => String(v ?? '').replace(/[\r\n]+/g, ' ');
   const lines = [
-    `From: ${from}`,
-    `To: ${to}`,
-    cc ? `Cc: ${cc}` : null,
-    `Subject: ${subject}`,
+    `From: ${h(from)}`,
+    `To: ${h(to)}`,
+    cc ? `Cc: ${h(cc)}` : null,
+    `Subject: ${h(subject)}`,
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=utf-8',
     '',

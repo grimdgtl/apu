@@ -78,18 +78,31 @@ async function ucitajDnevnik(od, do_) {
   }));
 }
 
-/** Najduži i tekući niz dana sa skorom >= prag. */
+/**
+ * Najduži i tekući niz dana sa skorom >= prag.
+ *
+ * Broji UZASTOPNE KALENDARSKE DANE, ne uzastopne redove u tabeli. Ako za neki
+ * dan red uopšte ne postoji (bot nije radio, dan preskočen), niz se prekida —
+ * inače bi dva dobra dana sa nedelju dana rupe između njih davala "niz od 2".
+ */
 function nizovi(dani, prag) {
+  const uRedu = dani
+    .filter((d) => d.datum && d.skor >= prag)
+    .map((d) => d.datum)
+    .sort();
+
   let najduzi = 0;
   let tekuci = 0;
-  for (const d of dani) {
-    if (d.skor >= prag) {
-      tekuci += 1;
-      najduzi = Math.max(najduzi, tekuci);
-    } else {
-      tekuci = 0;
-    }
+  let prethodni = null;
+
+  for (const datum of uRedu) {
+    const dan = Date.parse(`${datum}T12:00:00Z`);
+    // Nastavak niza samo ako je tačno dan posle prethodnog.
+    tekuci = prethodni !== null && dan - prethodni === 86_400_000 ? tekuci + 1 : 1;
+    najduzi = Math.max(najduzi, tekuci);
+    prethodni = dan;
   }
+
   return { tekuci, najduzi };
 }
 
@@ -102,7 +115,9 @@ function veza(dani, mapaOcena, stavka, minPoGrupi = 3) {
   const sa = [];
   const bez = [];
   for (const d of dani) {
-    const ocena = mapaOcena[d.ocena];
+    // hasOwn — da naziv opcije tipa "constructor" ne pokupi funkciju sa
+    // prototipa i pretvori prosek u NaN.
+    const ocena = Object.hasOwn(mapaOcena, d.ocena) ? mapaOcena[d.ocena] : null;
     if (ocena == null) continue;
     (d.stavke[stavka] ? sa : bez).push(ocena);
   }

@@ -12,12 +12,14 @@ import * as insights from '../services/insights.js';
 import * as dnevnik from '../services/dnevnik.js';
 import * as todo from '../services/todo.js';
 import { generateReport } from '../services/reports.js';
+import * as outbox from '../services/outbox.js';
+import { zatraziPotvrduMaila } from '../services/telegram.js';
 import {
   birthdaysToday,
   upcomingBirthdays,
   markGreetedByName,
 } from '../services/birthdays.js';
-import { logger } from '../logger.js';
+import { logger, bezOsetljivog } from '../logger.js';
 
 /**
  * Dispečer alata: mapira ime alata (koje je Claude pozvao) na stvarnu funkciju
@@ -76,7 +78,25 @@ const handlers = {
   // Mail
   mail_list_unread: (input) => mail.listUnread(input),
   mail_save_draft: (input) => mail.saveDraft(input),
-  mail_send: (input) => mail.sendMail(input),
+  // NE šalje — priprema poruku i traži potvrdu vlasnika dugmetom u Telegramu.
+  // Model nema način da sam pošalje mejl, pa ubačeno uputstvo iz tuđeg mejla
+  // može najviše da napravi predlog koji korisnik vidi i odbije.
+  mail_send: async (input) => {
+    if (!input?.to || !input?.subject || !input?.body) {
+      throw new Error('Za pripremu mejla trebaju to, subject i body.');
+    }
+    const id = outbox.pripremi(input);
+    await zatraziPotvrduMaila(id, input);
+    return {
+      poslato: false,
+      cekaPotvrdu: true,
+      id,
+      poruka:
+        'Mejl je PRIPREMLJEN i prikazan korisniku sa dugmadima Pošalji/Otkaži. ' +
+        'NIJE poslat i ti ga ne možeš poslati — šalje se tek kad korisnik pritisne dugme. ' +
+        'Reci korisniku da potvrdi dugmetom; ne tvrdi da je mejl poslat.',
+    };
+  },
 
   // Monitoring sajtova
   monitor_check_sites: () => checkAllSites(),
@@ -103,7 +123,7 @@ export async function executeTool(name, input) {
     return { error: `Nepoznat alat: ${name}` };
   }
   try {
-    logger.info(`Alat pozvan: ${name}`, JSON.stringify(input));
+    logger.info(`Alat pozvan: ${name}`, bezOsetljivog(input));
     const result = await handler(input || {});
     return { ok: true, result };
   } catch (err) {

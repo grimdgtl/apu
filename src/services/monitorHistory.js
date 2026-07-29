@@ -1,4 +1,4 @@
-import { loadState, saveState } from '../store.js';
+import { loadState, updateState } from '../store.js';
 import { logger } from '../logger.js';
 
 /**
@@ -31,27 +31,29 @@ export function zabelezi(rezultati) {
   if (!Array.isArray(rezultati) || rezultati.length === 0) return { upisano: 0 };
 
   const vreme = new Date().toISOString();
-  const zapisi = ucitaj();
 
-  for (const r of rezultati) {
-    zapisi.push({
-      vreme,
-      sajt: r.name,
-      url: r.url,
-      ok: Boolean(r.ok),
-      status: r.status ?? null,
-      ms: r.ms ?? null,
-      greska: r.error ?? null,
-    });
-  }
+  return updateState(FILE, (trenutno) => {
+    const zapisi = Array.isArray(trenutno) ? [...trenutno] : [];
 
-  // Rotacija — zadrži najnovijih MAX_ZAPISA.
-  const visak = zapisi.length - MAX_ZAPISA;
-  const konacni = visak > 0 ? zapisi.slice(visak) : zapisi;
+    for (const r of rezultati) {
+      zapisi.push({
+        vreme,
+        sajt: r.name,
+        url: r.url,
+        ok: Boolean(r.ok),
+        status: r.status ?? null,
+        ms: r.ms ?? null,
+        greska: r.error ?? null,
+      });
+    }
 
-  saveState(FILE, konacni);
-  logger.debug(`Monitor istorija: upisano ${rezultati.length} zapisa (ukupno ${konacni.length}).`);
-  return { upisano: rezultati.length, ukupno: konacni.length };
+    // Rotacija — zadrži najnovijih MAX_ZAPISA.
+    const visak = zapisi.length - MAX_ZAPISA;
+    const konacni = visak > 0 ? zapisi.slice(visak) : zapisi;
+
+    logger.debug(`Monitor istorija: upisano ${rezultati.length} zapisa (ukupno ${konacni.length}).`);
+    return konacni;
+  }, []);
 }
 
 /**

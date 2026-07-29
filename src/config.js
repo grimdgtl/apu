@@ -21,6 +21,28 @@ function optional(name, fallback = undefined) {
   return value === undefined || value === '' ? fallback : value;
 }
 
+/**
+ * Broj iz okruženja, sa zaštitom od nevalidne vrednosti.
+ *
+ * Bez ovoga `Number('abc')` daje NaN i tiho lomi ponašanje — npr.
+ * SITE_MONITOR_TIMEOUT_MS=abc znači `setTimeout(..., NaN)`, što okine odmah,
+ * pa bi bot prijavio da su SVI sajtovi pali. Bolje glasno upozorenje i
+ * podrazumevana vrednost nego pogrešan podatak.
+ */
+function numeric(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    console.warn(
+      `[config] ${name}="${raw}" nije broj — koristim podrazumevanu vrednost ${fallback}.`,
+    );
+    return fallback;
+  }
+  return parsed;
+}
+
 export const config = {
   telegram: {
     token: required('TELEGRAM_BOT_TOKEN'),
@@ -62,13 +84,13 @@ export const config = {
   mail: {
     imap: {
       host: optional('IMAP_HOST'),
-      port: Number(optional('IMAP_PORT', '993')),
+      port: numeric('IMAP_PORT', 993),
       user: optional('IMAP_USER'),
       password: optional('IMAP_PASSWORD'),
     },
     smtp: {
       host: optional('SMTP_HOST'),
-      port: Number(optional('SMTP_PORT', '465')),
+      port: numeric('SMTP_PORT', 465),
       secure: optional('SMTP_SECURE', 'true') === 'true',
       user: optional('SMTP_USER'),
       password: optional('SMTP_PASSWORD'),
@@ -91,18 +113,18 @@ export const config = {
 
   // Vremenska prognoza (Open-Meteo, bez ključa). Podrazumevano Beograd.
   weather: {
-    latitude: Number(optional('WEATHER_LAT', '45.2671')),
-    longitude: Number(optional('WEATHER_LON', '19.8335')),
+    latitude: numeric('WEATHER_LAT', 45.2671),
+    longitude: numeric('WEATHER_LON', 19.8335),
     locationName: optional('WEATHER_LOCATION', 'Novi Sad'),
   },
 
   // Prag (%) iznad kojeg bot šalje čestitku u 23:00.
-  checklistPraiseThreshold: Number(optional('CHECKLIST_PRAISE_THRESHOLD', '70')),
+  checklistPraiseThreshold: numeric('CHECKLIST_PRAISE_THRESHOLD', 70),
 
   // Monitoring sajtova — pragovi za "pao" (timeout) i "sporo".
   monitor: {
-    timeoutMs: Number(optional('SITE_MONITOR_TIMEOUT_MS', '15000')),
-    slowMs: Number(optional('SITE_MONITOR_SLOW_MS', '5000')),
+    timeoutMs: numeric('SITE_MONITOR_TIMEOUT_MS', 15000),
+    slowMs: numeric('SITE_MONITOR_SLOW_MS', 5000),
   },
 
   cron: {

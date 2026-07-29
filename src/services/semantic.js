@@ -1,5 +1,5 @@
 import { config, featureEnabled } from '../config.js';
-import { logger } from '../logger.js';
+import { logger, skrati } from '../logger.js';
 import { loadState, saveState } from '../store.js';
 import * as notion from './notion.js';
 import * as drive from './drive.js';
@@ -189,7 +189,7 @@ export async function trazi({ upit, limit = 5 }) {
     .sort((a, b) => b.ocena - a.ocena)
     .slice(0, limit);
 
-  logger.info(`Semantika: "${upit}" → ${rezultati.length} rezultata.`);
+  logger.info(`Semantika: "${skrati(upit, 60)}" → ${rezultati.length} rezultata.`);
   return { upit, ukupnoUIndeksu: indeks.length, rezultati };
 }
 

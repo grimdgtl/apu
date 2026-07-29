@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { logger } from '../logger.js';
+import { logger, skrati } from '../logger.js';
 
 /**
  * Govor u tekst preko Whisper-a.
@@ -75,6 +75,6 @@ export async function transcribe(audioBuffer, filename = 'voice.ogg') {
   }
 
   const text = (data.text || '').trim();
-  logger.info(`Transkribovana glasovna (${p.model}): "${text}"`);
+  logger.info(`Transkribovana glasovna (${p.model}): "${skrati(text, 80)}"`);
   return text;
 }

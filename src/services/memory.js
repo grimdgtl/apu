@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { loadState, saveState } from '../store.js';
-import { logger } from '../logger.js';
+import { logger, skrati } from '../logger.js';
 
 /**
  * Trajno pamćenje činjenica o korisniku.
@@ -52,7 +52,7 @@ export function zapamti({ tekst, kategorija = 'ostalo' }) {
     postojeca.kategorija = kategorija;
     postojeca.azurirano = new Date().toISOString();
     snimi(cinjenice);
-    logger.info(`Memorija: činjenica već postojala, osvežena — "${tekst}"`);
+    logger.info(`Memorija: činjenica već postojala, osvežena — "${skrati(tekst, 60)}"`);
     return { ...postojeca, novo: false };
   }
 
@@ -71,7 +71,7 @@ export function zapamti({ tekst, kategorija = 'ostalo' }) {
   };
   cinjenice.push(nova);
   snimi(cinjenice);
-  logger.info(`Memorija: zapamćeno [${kategorija}] "${tekst}"`);
+  logger.info(`Memorija: zapamćeno [${kategorija}] "${skrati(tekst, 60)}"`);
   return { ...nova, novo: true };
 }
 
@@ -82,7 +82,7 @@ export function zaboravi({ id }) {
   if (idx === -1) throw new Error(`Nema činjenice sa ID "${id}".`);
   const [obrisana] = cinjenice.splice(idx, 1);
   snimi(cinjenice);
-  logger.info(`Memorija: obrisano "${obrisana.tekst}"`);
+  logger.info(`Memorija: obrisano "${skrati(obrisana.tekst, 60)}"`);
   return { obrisano: obrisana.tekst };
 }
 
@@ -98,7 +98,7 @@ export function izmeni({ id, tekst, kategorija }) {
   if (kategorija) c.kategorija = kategorija;
   c.azurirano = new Date().toISOString();
   snimi(cinjenice);
-  logger.info(`Memorija: izmenjeno ${id} → "${c.tekst}"`);
+  logger.info(`Memorija: izmenjeno ${id} → "${skrati(c.tekst, 60)}"`);
   return c;
 }
 

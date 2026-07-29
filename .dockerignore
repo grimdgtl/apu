@@ -8,3 +8,6 @@ npm-debug.log
 .google-token.json
 scratchpad
 README.md
+
+# Lokalni podaci se montiraju kao volume, ne pakuju se u image.
+data

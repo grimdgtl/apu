@@ -12,11 +12,38 @@ import * as notion from './notion.js';
  * praga je "sporo", a mrežna greška ili status >= 400 znači "pao".
  */
 
-/** Normalizuje domen u pun URL (dodaje https:// ako fali). */
+/**
+ * Hostovi koji pokazuju na samu mašinu ili privatnu mrežu. Monitor je alat za
+ * javne sajtove klijenata; ako se u koloni Domen slučajno (ili preko tuđe
+ * izmene deljene baze) nađe interna adresa, provera bi postala skener
+ * unutrašnje mreže i cloud metadata servisa.
+ */
+function jePrivatanHost(hostname) {
+  const h = hostname.toLowerCase();
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.internal')) return true;
+  if (h === '169.254.169.254') return true; // cloud metadata
+  if (/^127\./.test(h) || h === '0.0.0.0' || h === '::1' || h === '[::1]') return true;
+  if (/^10\./.test(h) || /^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+  if (/^169\.254\./.test(h)) return true;
+  return false;
+}
+
+/**
+ * Normalizuje domen u pun URL (dodaje https:// ako fali) i proverava da je
+ * upotrebljiv. Baca ako shema nije http(s) ili host nije javan.
+ */
 function normalizeUrl(raw) {
-  const url = String(raw).trim();
-  if (/^https?:\/\//i.test(url)) return url;
-  return `https://${url}`;
+  const text = String(raw).trim();
+  const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`nepodržana shema "${url.protocol}"`);
+  }
+  if (jePrivatanHost(url.hostname)) {
+    throw new Error(`interna adresa "${url.hostname}" — preskačem`);
+  }
+  return url.toString();
 }
 
 /**
@@ -25,7 +52,24 @@ function normalizeUrl(raw) {
  * @returns {{name, url, ok, slow, status, ms, error}}
  */
 async function checkSite(site) {
-  const url = normalizeUrl(site.url);
+  // Neispravan ili interni URL je greška TOG sajta, ne cele provere — inače
+  // bi jedan pogrešan red u Notion-u oborio proveru svih ostalih.
+  let url;
+  try {
+    url = normalizeUrl(site.url);
+  } catch (err) {
+    logger.warn(`Monitor: preskačem "${site.name}" — ${err.message}`);
+    return {
+      name: site.name,
+      url: String(site.url),
+      ok: false,
+      slow: false,
+      status: null,
+      ms: 0,
+      error: `neispravan URL (${err.message})`,
+    };
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.monitor.timeoutMs);
   const started = Date.now();

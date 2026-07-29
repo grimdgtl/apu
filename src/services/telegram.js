@@ -1,10 +1,12 @@
-import { Telegraf } from 'telegraf';
+import { Telegraf, Markup } from 'telegraf';
 import { config, featureEnabled } from '../config.js';
-import { logger } from '../logger.js';
+import { logger, skrati } from '../logger.js';
 import { runAgent } from './claude.js';
 import { loadHistories, saveHistories } from '../store.js';
 import { transcribe } from './transcribe.js';
 import * as jobs from './jobs.js';
+import * as outbox from './outbox.js';
+import { sendMail } from './mail.js';
 
 /**
  * Telegram servis — sloj između korisnika i Claude agenta.
@@ -114,6 +116,8 @@ bot.command('status', (ctx) => {
   );
 
   const extra = [`\nModel: ${config.anthropic.model}`];
+  const cekaju = outbox.broj();
+  if (cekaju > 0) extra.push(`Mejlova čeka potvrdu: ${cekaju}`);
   if (featureEnabled.siteMonitor) {
     extra.push(
       `Provere sajtova: tiho "${config.cron.siteCheckSilent}", izveštaj "${config.cron.siteCheckReport}"`,
@@ -167,7 +171,7 @@ bot.on('text', async (ctx) => {
     return;
   }
   const userText = ctx.message.text;
-  logger.info(`Poruka od vlasnika: ${userText}`);
+  logger.info(`Poruka od vlasnika: ${skrati(userText)}`);
   await respondTo(ctx, chatId, userText);
 });
 
@@ -181,9 +185,17 @@ bot.on('voice', async (ctx) => {
     return;
   }
 
+  // Veličinu proveravamo PRE skidanja — Telegram je šalje uz poruku, pa nema
+  // razloga da prvo povučemo ceo fajl u memoriju da bismo ga onda odbili.
+  const voice = ctx.message.voice;
+  if (voice.file_size && voice.file_size > MAX_AUDIO_BYTES) {
+    await ctx.reply('Glasovna poruka je preduga (max ~20 MB). Pošalji kraću.');
+    return;
+  }
+
   ctx.sendChatAction('typing').catch(() => {});
   try {
-    const link = await ctx.telegram.getFileLink(ctx.message.voice.file_id);
+    const link = await ctx.telegram.getFileLink(voice.file_id);
     const audio = Buffer.from(await (await fetch(link.href)).arrayBuffer());
     const text = await transcribe(audio);
 
@@ -209,6 +221,9 @@ const DEFAULT_IMAGE_PROMPT =
 // Anthropic preporučuje slike do ~5 MB.
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+// Telegram Bot API ionako ne daje da se skine fajl veći od 20 MB.
+const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
+
 // Tipovi slika koje Claude vision podržava.
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
@@ -217,7 +232,14 @@ const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', '
  * uz opis (caption) ili podrazumevani nalog. Radi za slike poslate kao "photo"
  * (kompresovane) i kao "document" sa image/* tipom.
  */
-async function handleImage(ctx, chatId, { fileId, mediaType = 'image/jpeg', caption }) {
+async function handleImage(ctx, chatId, { fileId, mediaType = 'image/jpeg', caption, fileSize }) {
+  // Odbij po prijavljenoj veličini pre skidanja; posle skidanja proveravamo
+  // još jednom, jer file_size ume da izostane.
+  if (fileSize && fileSize > MAX_IMAGE_BYTES) {
+    await ctx.reply('Slika je prevelika (max ~5 MB). Pošalji je kompresovanu ili manju.');
+    return;
+  }
+
   ctx.sendChatAction('typing').catch(() => {});
   try {
     const link = await ctx.telegram.getFileLink(fileId);
@@ -236,7 +258,10 @@ async function handleImage(ctx, chatId, { fileId, mediaType = 'image/jpeg', capt
       { type: 'text', text: caption?.trim() || DEFAULT_IMAGE_PROMPT },
     ];
 
-    logger.info(`Slika od vlasnika (${mediaType}, ${bytes.length} B)${caption ? ` — "${caption}"` : ''}`);
+    logger.info(
+      `Slika od vlasnika (${mediaType}, ${bytes.length} B)` +
+        (caption ? ` — "${skrati(caption, 80)}"` : ''),
+    );
     await respondTo(ctx, chatId, content);
   } catch (err) {
     logger.error('Greška pri obradi slike:', err);
@@ -254,6 +279,7 @@ bot.on('photo', async (ctx) => {
     fileId: largest.file_id,
     mediaType: 'image/jpeg',
     caption: ctx.message.caption,
+    fileSize: largest.file_size,
   });
 });
 
@@ -278,16 +304,102 @@ bot.on('document', async (ctx) => {
     fileId: doc.file_id,
     mediaType: mt,
     caption: ctx.message.caption,
+    fileSize: doc.file_size,
   });
+});
+
+// ------------------------------------------------- potvrda slanja mejla ---
+
+/**
+ * Pokazuje vlasniku pripremljen mejl i traži potvrdu dugmetom.
+ * Zove je alat `mail_send` — model sam ne može da pošalje ništa.
+ */
+export async function zatraziPotvrduMaila(id, mail) {
+  const telo = mail.body.length > 1500 ? `${mail.body.slice(0, 1500)}\n…(skraćeno)` : mail.body;
+  const pregled =
+    '📧 Treba da pošaljem ovaj mejl — potvrdi:\n\n' +
+    `Za: ${mail.to}\n` +
+    (mail.cc ? `Cc: ${mail.cc}\n` : '') +
+    `Naslov: ${mail.subject}\n\n${telo}`;
+
+  await bot.telegram.sendMessage(
+    config.telegram.ownerChatId,
+    pregled,
+    Markup.inlineKeyboard([
+      Markup.button.callback('✅ Pošalji', `mail:send:${id}`),
+      Markup.button.callback('❌ Otkaži', `mail:cancel:${id}`),
+    ]),
+  );
+}
+
+// Pritisak na dugme — jedino mesto odakle mejl zaista odlazi.
+bot.action(/^mail:(send|cancel):([a-f0-9-]+)$/i, async (ctx) => {
+  if (!isOwner(ctx.chat?.id ?? ctx.from?.id)) {
+    await ctx.answerCbQuery('Nemaš dozvolu.').catch(() => {});
+    return;
+  }
+
+  const [, radnja, id] = ctx.match;
+
+  if (radnja === 'cancel') {
+    outbox.odbaci(id);
+    await ctx.answerCbQuery('Otkazano.').catch(() => {});
+    await ctx.editMessageReplyMarkup(undefined).catch(() => {});
+    await ctx.reply('❌ Mejl nije poslat.');
+    return;
+  }
+
+  // Skidamo iz čekaonice ODMAH — dupli klik ne sme da pošalje dvaput.
+  const mail = outbox.preuzmi(id);
+  if (!mail) {
+    await ctx.answerCbQuery('Predlog je istekao ili je već obrađen.').catch(() => {});
+    await ctx.editMessageReplyMarkup(undefined).catch(() => {});
+    return;
+  }
+
+  await ctx.answerCbQuery('Šaljem...').catch(() => {});
+  await ctx.editMessageReplyMarkup(undefined).catch(() => {});
+
+  try {
+    const rezultat = await sendMail(mail);
+    await ctx.reply(`✅ Mejl poslat na ${mail.to}.`);
+    logger.info(`Mejl ${id} poslat nakon potvrde vlasnika (${rezultat.messageId ?? '-'}).`);
+  } catch (err) {
+    logger.error('Slanje mejla nije uspelo:', err.message);
+    await ctx.reply(`⚠️ Slanje nije uspelo: ${err.message}`);
+  }
 });
 
 /**
  * Telegram ograničava poruke na 4096 karaktera — delimo duže poruke.
+ *
+ * Seče po ZNAKOVIMA, ne po UTF-16 jedinicama: emodži zauzima dve jedinice, pa
+ * bi obično `slice` umelo da ga preseče na pola i pošalje pokvaren znak.
+ * Kad god može, prelama na kraju reda da poruka ostane čitljiva.
  */
+function podeli(text, limit = 4000) {
+  const znakovi = [...text];
+  const delovi = [];
+
+  for (let i = 0; i < znakovi.length; ) {
+    let deo = znakovi.slice(i, i + limit).join('');
+
+    // Ako nismo na kraju, probaj da prelomiš na poslednjem novom redu.
+    if (i + limit < znakovi.length) {
+      const prelom = deo.lastIndexOf('\n');
+      if (prelom > limit * 0.5) deo = deo.slice(0, prelom);
+    }
+
+    delovi.push(deo);
+    i += [...deo].length;
+  }
+
+  return delovi.length ? delovi : [text];
+}
+
 async function replyChunked(ctx, text) {
-  const LIMIT = 4000;
-  for (let i = 0; i < text.length; i += LIMIT) {
-    await ctx.reply(text.slice(i, i + LIMIT));
+  for (const deo of podeli(text)) {
+    await ctx.reply(deo);
   }
 }
 
@@ -295,9 +407,8 @@ async function replyChunked(ctx, text) {
  * Proaktivno slanje poruke vlasniku (koristi scheduler).
  */
 export async function sendMessage(text, chatId = config.telegram.ownerChatId) {
-  const LIMIT = 4000;
-  for (let i = 0; i < text.length; i += LIMIT) {
-    await bot.telegram.sendMessage(chatId, text.slice(i, i + LIMIT));
+  for (const deo of podeli(text)) {
+    await bot.telegram.sendMessage(chatId, deo);
   }
   logger.info('Proaktivna poruka poslata vlasniku.');
 }

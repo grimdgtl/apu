@@ -549,8 +549,10 @@ const definitions = [
     feature: 'mail',
     name: 'mail_send',
     description:
-      'ŠALJE mejl odmah. Koristi tek nakon što korisnik izričito potvrdi da želi da pošalje. ' +
-      'Kada javljaš korisniku ishod, reci jasno da je mejl POSLAT.',
+      'PRIPREMA mejl za slanje i prikazuje ga korisniku sa dugmadima Pošalji/Otkaži. ' +
+      'NE šalje mejl — slanje pokreće isključivo korisnik pritiskom na dugme. ' +
+      'Kada javljaš ishod, reci da si pripremio mejl i da treba da ga potvrdi dugmetom; ' +
+      'NIKADA ne tvrdi da je poslat.',
     input_schema: {
       type: 'object',
       properties: {

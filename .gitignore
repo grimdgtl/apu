@@ -3,3 +3,7 @@ node_modules/
 *.log
 .DS_Store
 .google-token.json
+
+# Lokalni podaci — istorija razgovora, zapamćene činjenice, indeks pretrage,
+# istorija monitoringa. Nikad ne idu u repozitorijum.
+data/

@@ -1,6 +1,6 @@
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { loadState, saveState } from '../store.js';
+import { loadState, updateState } from '../store.js';
 import * as notion from './notion.js';
 
 /**
@@ -9,8 +9,8 @@ import * as notion from './notion.js';
  *   11:00  javi ko danas slavi (sa odnosom, telefonom, idejom za poklon).
  *   19:00  ako još nisi rekao botu da si čestitao, podseti te.
  *
- * "Čestitao sam" se pamti u state.json (odvojeno od istorije razgovora, da
- * /reset ne pobriše zabeleške), po ključu godina-mesec-dan + ID osobe.
+ * "Čestitao sam" se pamti u DATA_DIR/birthdays.json (odvojeno od istorije
+ * razgovora, da /reset ne pobriše zabeleške), po ključu datum + ID osobe.
  */
 
 // Ime fajla u DATA_DIR (state se čuva kao data/birthdays.json).
@@ -154,17 +154,24 @@ function greetedToday() {
  */
 export function markGreeted(personId) {
   const today = todayInTimezone();
-  const all = loadState(STATE_NAME, {}) || {};
 
-  const cutoff = Date.UTC(today.year, today.month - 1, today.day) - 7 * 86_400_000;
-  for (const key of Object.keys(all)) {
-    const [y, m, d] = key.split('-').map(Number);
-    if (Date.UTC(y, m - 1, d) < cutoff) delete all[key];
-  }
+  return updateState(
+    STATE_NAME,
+    (trenutno) => {
+      const all = { ...(trenutno || {}) };
 
-  all[today.iso] = { ...(all[today.iso] || {}), [personId]: true };
-  saveState(STATE_NAME, all);
-  logger.info(`Rođendani: označeno da je čestitano (${personId}).`);
+      const cutoff = Date.UTC(today.year, today.month - 1, today.day) - 7 * 86_400_000;
+      for (const key of Object.keys(all)) {
+        const [y, m, d] = key.split('-').map(Number);
+        if (Date.UTC(y, m - 1, d) < cutoff) delete all[key];
+      }
+
+      all[today.iso] = { ...(all[today.iso] || {}), [personId]: true };
+      logger.info(`Rođendani: označeno da je čestitano (${personId}).`);
+      return all;
+    },
+    {},
+  );
 }
 
 /**
@@ -184,7 +191,7 @@ export async function markGreetedByName({ name }) {
 
   // Ako ime ne pogađa nikog, a slavi tačno jedna osoba, to je očigledno ona.
   if (hits.length === 0 && today.length === 1) {
-    markGreeted(today[0].id);
+    await markGreeted(today[0].id);
     return { matched: [{ id: today[0].id, name: today[0].name }], ambiguous: false, candidates: [] };
   }
 
@@ -201,7 +208,7 @@ export async function markGreetedByName({ name }) {
     return { matched: [], ambiguous: true, candidates: hits.map((p) => p.name) };
   }
 
-  markGreeted(hits[0].id);
+  await markGreeted(hits[0].id);
   return { matched: [{ id: hits[0].id, name: hits[0].name }], ambiguous: false, candidates: [] };
 }
 

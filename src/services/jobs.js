@@ -1,4 +1,4 @@
-import { loadState, saveState } from '../store.js';
+import { loadState, updateState } from '../store.js';
 import { logger } from '../logger.js';
 import { sendMessage } from './telegram.js';
 
@@ -21,11 +21,19 @@ function ucitaj() {
   return Array.isArray(raw) ? raw : [];
 }
 
+// Više poslova ume da se poklopi u istom minutu (u 10:00 idu i provera
+// sajtova i provera mejlova), pa upis ide kroz updateState da jedan zapis ne
+// pregazi drugi.
 function zabelezi(zapis) {
-  const zapisi = ucitaj();
-  zapisi.push(zapis);
-  const visak = zapisi.length - MAX_ZAPISA;
-  saveState(FILE, visak > 0 ? zapisi.slice(visak) : zapisi);
+  return updateState(
+    FILE,
+    (trenutno) => {
+      const zapisi = Array.isArray(trenutno) ? [...trenutno, zapis] : [zapis];
+      const visak = zapisi.length - MAX_ZAPISA;
+      return visak > 0 ? zapisi.slice(visak) : zapisi;
+    },
+    [],
+  );
 }
 
 const cekaj = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,7 +54,7 @@ export async function pokreni(naziv, posao, { pokusaja = 3, pauzaMs = 30_000 } =
   for (let pokusaj = 1; pokusaj <= pokusaja; pokusaj++) {
     try {
       const rezultat = await posao();
-      zabelezi({
+      await zabelezi({
         naziv,
         vreme: new Date().toISOString(),
         uspeh: true,
@@ -70,7 +78,7 @@ export async function pokreni(naziv, posao, { pokusaja = 3, pauzaMs = 30_000 } =
     }
   }
 
-  zabelezi({
+  await zabelezi({
     naziv,
     vreme: new Date().toISOString(),
     uspeh: false,
