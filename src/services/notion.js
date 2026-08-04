@@ -268,7 +268,10 @@ function klijentUObjekat(p) {
     id: p.id,
     url: p.url,
     klijent: titleOf(p),
+    // `naziv` pada na naslov kad kolona nije popunjena; `nazivZaFakturu`
+    // ostaje sirov da se vidi da li je kolona zaista prazna.
     naziv: naziv || titleOf(p),
+    nazivZaFakturu: naziv,
     domen: props.Domen?.url ?? null,
     email: props.Email?.email ?? null,
     telefon: props.Telefon?.phone_number ?? null,
@@ -309,24 +312,141 @@ async function sviKlijenti() {
   return out;
 }
 
+// Pravni oblici i skraćenice koje ne nose identitet firme.
+const PRAVNI_OBLICI = new Set([
+  'pr', 'doo', 'd', 'o', 'ad', 'dooel', 'preduzetnik', 'agencija',
+  'llc', 'ltd', 'inc', 'gmbh', 'company', 'co',
+]);
+
 /**
- * Dodaje novog klijenta u KLIJENTI bazu.
+ * Svodi naziv firme na prepoznatljivo jezgro: mala slova, bez dijakritika,
+ * bez interpunkcije i bez pravnih oblika.
  *
- * Odbija ako klijent sa istim nazivom već postoji — dupli red bi razbio i
- * izradu faktura (pretraga bi našla dva pogotka) i monitoring.
+ * "Marko Popov PR DGTL LAB" → "marko popov dgtl lab"
+ * "DGTL Lab"                → "dgtl lab"
+ */
+function normalizujNaziv(tekst) {
+  return String(tekst ?? '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // skini kvačice sa č, ć, š, ž
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((rec) => rec && !PRAVNI_OBLICI.has(rec))
+    .join(' ')
+    .trim();
+}
+
+/**
+ * Da li dva naziva označavaju istu firmu.
+ *
+ * Isti klijent se u praksi piše na više načina — "DGTL Lab" u bazi, a
+ * "Marko Popov PR DGTL LAB" na fakturi. Zato je dovoljno da kraći naziv u
+ * celosti postoji u dužem. Traži se bar dve značajne reči da "Lab" ne bi
+ * pogodio svaku firmu koja tu reč sadrži.
+ */
+export function istaFirma(a, b) {
+  const na = normalizujNaziv(a);
+  const nb = normalizujNaziv(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+
+  const ta = new Set(na.split(' '));
+  const tb = new Set(nb.split(' '));
+  const [manji, veci] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
+
+  if (manji.size < 2) return false;
+  return [...manji].every((rec) => veci.has(rec));
+}
+
+/**
+ * Kandidati za dati naziv, po nivoima strogosti — vraća PRVI nivo koji nešto
+ * nađe.
+ *
+ * Bez stepenovanja bi tačan naziv postao dvosmislen čim u bazi postoji i duži
+ * koji ga sadrži: "Slikaj i Cirkaj" bi hvatalo i "Paketi Slikaj i Cirkaj".
+ * Ovako tačan pogodak uvek pobeđuje, a šire poređenje se koristi samo kad
+ * doslovnog nema.
+ */
+function kandidatiZaNaziv(svi, naziv) {
+  const doslovno = String(naziv).trim().toLowerCase();
+  const normalizovan = normalizujNaziv(naziv);
+
+  const nivoi = [
+    // 1. Doslovno isti naziv (naslov reda ili naziv za fakturu).
+    (k) => k.klijent.toLowerCase() === doslovno || k.naziv.toLowerCase() === doslovno,
+    // 2. Isti posle normalizacije — razlika je samo pravni oblik ili pisanje.
+    (k) =>
+      normalizujNaziv(k.klijent) === normalizovan || normalizujNaziv(k.naziv) === normalizovan,
+    // 3. Jedan naziv u celosti sadrži drugi ("Marko Popov PR DGTL LAB" ⊃ "DGTL Lab").
+    (k) => istaFirma(k.klijent, naziv) || istaFirma(k.naziv, naziv),
+  ];
+
+  for (const uslov of nivoi) {
+    const pogodci = svi.filter(uslov);
+    if (pogodci.length > 0) return pogodci;
+  }
+  return [];
+}
+
+/**
+ * Dodaje klijenta — ILI dopunjuje postojećeg ako ga prepozna.
+ *
+ * Poređenje ne sme da bude doslovno: korisnik jednom pošalje "DGTL Lab", a
+ * drugi put pun pravni naziv "Marko Popov PR DGTL LAB". Doslovna provera je
+ * to propuštala i pravila drugi red za istu firmu, što posle razbija izradu
+ * faktura (pretraga nađe dva pogotka pa odbije da nastavi).
+ *
+ * Kad nađe tačno jedan pogodak, podaci se upisuju U TAJ red. Kad ih nađe
+ * više, ne pogađa — traži da korisnik precizira.
  */
 export async function addClient(ulaz) {
   osiguranaBazaKlijenata();
   if (!ulaz?.naziv) throw new Error('Nedostaje naziv klijenta.');
 
   const postojeci = await sviKlijenti();
-  const isti = postojeci.find(
-    (k) => k.klijent.trim().toLowerCase() === String(ulaz.naziv).trim().toLowerCase(),
-  );
-  if (isti) {
+  const kandidati = kandidatiZaNaziv(postojeci, ulaz.naziv);
+
+  if (kandidati.length > 1) {
     throw new Error(
-      `Klijent "${isti.klijent}" već postoji u bazi. Koristi client_update da dopuniš podatke.`,
+      `"${ulaz.naziv}" liči na više klijenata u bazi: ${kandidati
+        .map((k) => k.klijent)
+        .join(', ')}. Preciziraj o kome se radi i koristi client_update.`,
     );
+  }
+
+  if (kandidati.length === 1) {
+    const p = kandidati[0];
+
+    // Naslov reda se NE menja — korisnik ga je tako nazvao. Ako je poslao
+    // duži, pravni naziv a kolona za fakturu je prazna, tu mu je mesto.
+    const izmene = { ...ulaz };
+    delete izmene.naziv;
+    if (
+      !izmene.nazivZaFakturu &&
+      !p.nazivZaFakturu &&
+      String(ulaz.naziv).trim() !== p.klijent.trim()
+    ) {
+      izmene.nazivZaFakturu = ulaz.naziv;
+    }
+
+    const properties = klijentProperties(izmene);
+    if (Object.keys(properties).length === 0) {
+      return { ...p, dopunjen: false, poruka: `Klijent "${p.klijent}" već postoji; nema šta da se dopuni.` };
+    }
+
+    const page = await getClient().pages.update({ page_id: p.id, properties });
+    logger.info(`Notion: dopunjen postojeći klijent "${p.klijent}" (nije napravljen nov red).`);
+    return {
+      id: page.id,
+      url: page.url,
+      ...klijentUObjekat(page),
+      dopunjen: true,
+      poruka:
+        `Klijent "${p.klijent}" već postoji u bazi, pa su podaci upisani u TAJ red — ` +
+        'nije napravljen novi. Reci to korisniku.',
+    };
   }
 
   // Podrazumevano nov klijent je aktivan i tipa "Klijent".
@@ -337,8 +457,8 @@ export async function addClient(ulaz) {
     properties,
   });
 
-  logger.info(`Notion: dodat klijent "${ulaz.naziv}".`);
-  return { id: page.id, url: page.url, ...klijentUObjekat(page) };
+  logger.info(`Notion: dodat nov klijent "${ulaz.naziv}".`);
+  return { id: page.id, url: page.url, ...klijentUObjekat(page), dopunjen: false };
 }
 
 /**
@@ -386,24 +506,21 @@ export async function listClients({ aktivan, limit = 50 } = {}) {
  */
 export async function findClient({ query }) {
   const svi = await sviKlijenti();
-  const needle = String(query).trim().toLowerCase();
 
-  // Prvo tačan pogodak — "Illusions" ne sme da bude dvosmisleno samo zato što
-  // u bazi postoji i "Illusions World doo".
-  const tacan = svi.filter(
-    (k) => k.klijent.toLowerCase() === needle || k.naziv.toLowerCase() === needle,
-  );
-  if (tacan.length > 0) {
-    logger.debug(`Notion findClient "${query}": tačan pogodak`);
-    return tacan;
+  const kandidati = kandidatiZaNaziv(svi, query);
+  if (kandidati.length > 0) {
+    logger.debug(`Notion findClient "${query}": ${kandidati.length} pogodaka`);
+    return kandidati;
   }
 
-  const pogodci = svi.filter(
+  // Poslednji pokušaj — deo naziva, za slučaj da korisnik napiše samo "Illus".
+  const needle = String(query).trim().toLowerCase();
+  const delimicni = svi.filter(
     (k) => k.klijent.toLowerCase().includes(needle) || k.naziv.toLowerCase().includes(needle),
   );
 
-  logger.debug(`Notion findClient "${query}": ${pogodci.length} pogodaka`);
-  return pogodci;
+  logger.debug(`Notion findClient "${query}": ${delimicni.length} delimičnih pogodaka`);
+  return delimicni;
 }
 
 /** Rastavlja "059-2026" na {redni: 59, godina: 2026}; null ako format ne valja. */

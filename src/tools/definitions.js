@@ -51,10 +51,13 @@ const definitions = [
     feature: 'notionClients',
     name: 'client_add',
     description:
-      'Dodaje NOVOG klijenta u Notion KLIJENTI bazu. Koristi kada korisnik kaže "dodaj mi ' +
-      'novog klijenta", "ubaci X u bazu klijenata" i sl. Upiši sve podatke koje je korisnik ' +
-      'naveo; ono što nije rekao izostavi (ne izmišljaj PIB, adresu ni cenu). Ako klijent ' +
-      'već postoji, alat vrati grešku — tada koristi client_update.',
+      'Upisuje podatke o klijentu u Notion KLIJENTI bazu. Alat SAM proverava da li firma već ' +
+      'postoji: ako postoji, dopunjuje POSTOJEĆI red i ne pravi novi; ako ne postoji, otvara ' +
+      'nov. Prepoznaje firmu i kad je naziv drugačije napisan ("Marko Popov PR DGTL LAB" je ' +
+      'isto što i "DGTL Lab"), pa ga slobodno pozovi sa nazivom kako ga je korisnik naveo. ' +
+      'Koristi kad korisnik pošalje podatke firme ("dodaj mi ove podatke u bazu klijenata"). ' +
+      'Upiši samo ono što je korisnik naveo — ne izmišljaj PIB, adresu ni cenu. U odgovoru ' +
+      'alata polje "dopunjen" kaže da li je red već postojao; javi korisniku šta se desilo.',
     input_schema: {
       type: 'object',
       properties: {
