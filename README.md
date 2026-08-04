@@ -109,7 +109,8 @@ documents, website content): it is treated as data, never as instructions.
 
 ```
 apu/
-├── Dockerfile              # optional build (see Deployment)
+├── Dockerfile              # build image (recommended build pack)
+├── docker-entrypoint.sh    # fixes volume ownership, then drops to the node user
 ├── .env.example            # every environment variable
 ├── assets/
 │   ├── logo.png            # logo printed on invoices
@@ -140,6 +141,9 @@ apu/
     │   ├── monitor.js      # client website uptime checks
     │   ├── monitorHistory.js # stored check results, uptime reports
     │   ├── reports.js      # report generation into a Google Doc
+    │   ├── invoice.js      # draws the invoice PDF (pdfkit)
+    │   ├── invoices.js     # invoice flow: prepare → confirm → Drive + Notion
+    │   ├── outbox.js       # emails staged for the owner's confirmation
     │   └── scheduler.js    # cron reminders
     └── tools/
         ├── definitions.js  # tool definitions (Anthropic format) + feature gating
@@ -326,8 +330,8 @@ Anything that is switched off is additionally printed as a warning.
 The bot is a **background worker** — it does not listen on any HTTP port.
 
 1. **New Resource → Application**, source GitHub → repo, branch `main`.
-2. **Build Pack: Nixpacks** (default). Make sure to add **`NIXPACKS_NODE_VERSION=22`** —
-   without it Nixpacks builds with Node 18, which is EOL.
+2. **Build Pack: Dockerfile** (recommended). The repo's `Dockerfile` builds on
+   `node:22-alpine` and only runs `npm ci --omit=dev` — typically **1–2 minutes**.
 3. **No domain, no port.** Leave Ports/Domains empty and **disable the Health Check**
    (there is no HTTP endpoint; an enabled health check restarts the container in a loop).
 4. **Storages → Volume Mount** → *Name:* `apu-data`, *Destination Path:* `/app/data`,
@@ -338,11 +342,20 @@ The bot is a **background worker** — it does not listen on any HTTP port.
 5. **Environment Variables** — copy everything from `.env` (that file is not in git).
 6. **Deploy.**
 
-> **Alternative — Dockerfile.** The repo contains a `Dockerfile` (Node 22, explicit
-> `DATA_DIR`, runs as a non-root user). If you switch to **Build Pack: Dockerfile**, note
-> that an existing volume may be owned by `root` (because the Nixpacks build ran as root),
-> so the non-root process will fail to write to it with `EACCES`. In that case either
-> change the volume ownership or drop `USER node` from the Dockerfile.
+### Why Dockerfile over Nixpacks
+
+Nixpacks (Coolify's default) installs Node through Nix and then runs `apt-get update`,
+which pulls ~23 MB of Ubuntu package indices. On a cold layer cache that build takes
+**10–15 minutes**, most of it waiting on Ubuntu mirrors. The Dockerfile skips both steps.
+
+Switching build packs is safe: `docker-entrypoint.sh` starts as root only long enough to
+`chown` the mounted volume — which Docker creates as `root`, and which an earlier Nixpacks
+deploy also wrote to as root — then drops to the unprivileged `node` user via `su-exec`.
+Without that step the bot would hit `EACCES` writing its history on the first run after
+the switch.
+
+> If you stay on **Nixpacks**, add **`NIXPACKS_NODE_VERSION=22`** — without it Nixpacks
+> builds with Node 18, which is EOL and below this project's `engines` requirement.
 
 > Opening the auto-generated `sslip.io` URL returns **Bad Gateway** — that is expected,
 > the bot has no web interface. Check status through Logs and through Telegram.
