@@ -28,6 +28,12 @@ import { logger, bezOsetljivog } from '../logger.js';
  */
 
 const handlers = {
+  // Notion — klijenti
+  client_add: (input) => notion.addClient(input),
+  client_update: (input) => notion.updateClient(input),
+  client_list: (input) => notion.listClients(input),
+  client_find: (input) => notion.findClient(input),
+
   // Notion
   notion_add_task: (input) => notion.addTask(input),
   notion_list_tasks: (input) => notion.listTasks(input),

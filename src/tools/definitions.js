@@ -8,7 +8,118 @@ import { config } from '../config.js';
  * modelu (nije deo Anthropic šeme).
  */
 
+// Zajednička polja klijenta — ista za dodavanje i izmenu, pa se ne razilaze.
+const KLIJENT_POLJA = {
+  nazivZaFakturu: {
+    type: 'string',
+    description: 'Pun pravni naziv za fakturu, npr. "Illusions World doo".',
+  },
+  domen: { type: 'string', description: 'Sajt klijenta (npr. "illusion.rs").' },
+  email: { type: 'string', description: 'Kontakt email.' },
+  telefon: { type: 'string', description: 'Kontakt telefon.' },
+  pib: { type: 'string', description: 'PIB (poreski identifikacioni broj).' },
+  mb: { type: 'string', description: 'Matični broj.' },
+  adresa: { type: 'string', description: 'Ulica i broj, npr. "Kneza Mihaila 33".' },
+  grad: { type: 'string', description: 'Poštanski broj i grad, npr. "11000 Beograd".' },
+  opis: { type: 'string', description: 'Kratka napomena o klijentu ili poslu.' },
+  aktivan: {
+    type: 'string',
+    enum: ['Aktivan', 'Arhiva', 'U izradi'],
+    description: 'Status saradnje. Samo "Aktivan" ulazi u monitoring sajtova.',
+  },
+  tip: { type: 'string', enum: ['Klijent', 'Interni', 'Veliki ugovor'] },
+  status: {
+    type: 'string',
+    enum: ['Plaćeno', 'Nije plaćeno', 'Ne plaća'],
+    description: 'Stanje naplate.',
+  },
+  faktura: { type: 'string', enum: ['Poslato', 'Nije poslato', 'Ne plaća'] },
+  ponuda: { type: 'string', enum: ['Poslato', 'Nije poslato'] },
+  trajanje: {
+    type: 'string',
+    enum: ['Mesečno', '12 meseci', '6 meseci', 'Nema održavanja'],
+    description: 'Period ugovora o održavanju.',
+  },
+  odrzavanjeCena: { type: 'number', description: 'Cena održavanja u RSD.' },
+  elementor: { type: 'string', enum: ['Da', 'Ne'] },
+  mojHosting: { type: 'string', enum: ['Da', 'Ne'] },
+};
+
 const definitions = [
+  // ---------- Notion: klijenti ----------
+  {
+    feature: 'notionClients',
+    name: 'client_add',
+    description:
+      'Dodaje NOVOG klijenta u Notion KLIJENTI bazu. Koristi kada korisnik kaže "dodaj mi ' +
+      'novog klijenta", "ubaci X u bazu klijenata" i sl. Upiši sve podatke koje je korisnik ' +
+      'naveo; ono što nije rekao izostavi (ne izmišljaj PIB, adresu ni cenu). Ako klijent ' +
+      'već postoji, alat vrati grešku — tada koristi client_update.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        naziv: {
+          type: 'string',
+          description: 'Naziv klijenta kako se vodi u bazi (naslov reda), npr. "Illusions World".',
+        },
+        ...KLIJENT_POLJA,
+      },
+      required: ['naziv'],
+    },
+  },
+  {
+    feature: 'notionClients',
+    name: 'client_update',
+    description:
+      'Menja podatke POSTOJEĆEG klijenta. Prosleđuj samo polja koja se menjaju — izostavljena ' +
+      'ostaju netaknuta. Koristi za "dopuni PIB za X", "označi da je Y platio", ' +
+      '"prebaci Z u arhivu".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        klijent: {
+          type: 'string',
+          description: 'Naziv klijenta koji se menja (dovoljan deo naziva).',
+        },
+        naziv: { type: 'string', description: 'Novi naziv, ako se menja i sam naslov.' },
+        ...KLIJENT_POLJA,
+      },
+      required: ['klijent'],
+    },
+  },
+  {
+    feature: 'notionClients',
+    name: 'client_list',
+    description:
+      'Vraća klijente iz baze sa svim podacima. Koristi za "koji su mi klijenti", ' +
+      '"ko mi nije platio", "koliko imam aktivnih klijenata".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        aktivan: {
+          type: 'string',
+          enum: ['Aktivan', 'Arhiva', 'U izradi'],
+          description: 'Opciono filtriranje po statusu saradnje.',
+        },
+        limit: { type: 'number', description: 'Maksimalan broj (default 50).' },
+      },
+    },
+  },
+  {
+    feature: 'notionClients',
+    name: 'client_find',
+    description:
+      'Traži klijenta po delu naziva i vraća njegove podatke. Koristi kad ti treba PIB, ' +
+      'adresa, email ili status jednog konkretnog klijenta.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Deo naziva klijenta.' },
+      },
+      required: ['query'],
+    },
+  },
+
   // ---------- Notion: zadaci ----------
   {
     feature: 'notionTasks',

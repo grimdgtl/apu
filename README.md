@@ -49,6 +49,7 @@ Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →
 
 | Area | Tools |
 |---|---|
+| **Notion — clients** | `client_add`, `client_update`, `client_list`, `client_find` |
 | **Notion — work tasks** | `notion_add_task`, `notion_list_tasks`, `notion_update_task_status` |
 | **Notion — knowledge base** | `notion_add_knowledge` |
 | **Notion — reading** | `notion_search`, `notion_read_page` |
@@ -125,7 +126,7 @@ apu/
     ├── services/
     │   ├── telegram.js     # Telegraf: text/voice/photo handlers, commands
     │   ├── claude.js       # Anthropic client + agentic loop + system prompt
-    │   ├── notion.js       # work tasks, knowledge base, search, page reading
+    │   ├── notion.js       # clients, work tasks, knowledge base, invoices, search
     │   ├── checklist.js    # daily habit checklist (+ weekly gym goal)
     │   ├── dnevnik.js      # journal: mood, energy, keyword
     │   ├── todo.js         # personal to-do list (+ weekly recurring task)

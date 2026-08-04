@@ -106,6 +106,7 @@ bot.command('status', (ctx) => {
     ['Google Drive', featureEnabled.drive, 'GOOGLE_CLIENT_ID/SECRET + REFRESH_TOKEN'],
     ['Email', featureEnabled.mail, 'IMAP_USER + IMAP_PASSWORD'],
     ['Glasovne poruke', featureEnabled.voice, 'OPENAI_API_KEY ili GROQ_API_KEY'],
+    ['Baza klijenata', featureEnabled.notionClients, 'NOTION_API_KEY + NOTION_CLIENTS_DB_ID'],
     ['Monitoring sajtova', featureEnabled.siteMonitor, 'NOTION_API_KEY + NOTION_CLIENTS_DB_ID'],
     ['Rođendani', featureEnabled.birthdays, 'NOTION_API_KEY + NOTION_BIRTHDAYS_DB_ID'],
     ['Fakture', featureEnabled.invoices, 'NOTION_CLIENTS_DB_ID + NOTION_INVOICES_DB_ID + Google'],

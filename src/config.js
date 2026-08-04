@@ -200,6 +200,8 @@ export const featureEnabled = {
   voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
   // Monitoring sajtova traži Notion ključ i ID KLIJENTI baze.
   siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
+  // Upravljanje bazom klijenata (dodavanje, izmena, pregled).
+  notionClients: Boolean(config.notion.apiKey && config.notion.clientsDbId),
   // Podsetnici za rođendane traže Notion ključ i ID baze Rođendani.
   birthdays: Boolean(config.notion.apiKey && config.notion.birthdaysDbId),
   // Fakture traže bazu KLIJENTI (podaci klijenta), bazu FAKTURE (numeracija

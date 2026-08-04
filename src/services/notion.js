@@ -181,7 +181,7 @@ export async function listActiveSites() {
   return sites;
 }
 
-// --------------------------------------------------------------- fakture ---
+// -------------------------------------------------------------- klijenti ---
 
 /** Čita rich_text kolonu kao običan tekst. */
 function tekstProp(prop) {
@@ -189,38 +189,217 @@ function tekstProp(prop) {
 }
 
 /**
+ * Dozvoljene vrednosti select kolona u KLIJENTI bazi.
+ *
+ * Notion bi na nepoznatu vrednost tiho napravio NOVU opciju (npr. "aktivan"
+ * pored "Aktivan"), pa bi filtriranje po statusu prestalo da hvata sve redove.
+ * Zato se proverava unapred i vraća jasna greška.
+ */
+const KLIJENT_OPCIJE = {
+  Aktivan: ['Aktivan', 'Arhiva', 'U izradi'],
+  Tip: ['Klijent', 'Interni', 'Veliki ugovor'],
+  Status: ['Plaćeno', 'Nije plaćeno', 'Ne plaća'],
+  Faktura: ['Poslato', 'Nije poslato', 'Ne plaća'],
+  Ponuda: ['Poslato', 'Nije poslato'],
+  Trajanje: ['Mesečno', '12 meseci', '6 meseci', 'Nema održavanja'],
+  Elementor: ['Da', 'Ne'],
+  'Moj hosting': ['Da', 'Ne'],
+};
+
+function selectProp(kolona, vrednost) {
+  const dozvoljene = KLIJENT_OPCIJE[kolona];
+  if (!dozvoljene.includes(vrednost)) {
+    throw new Error(
+      `Nepoznata vrednost "${vrednost}" za "${kolona}". Dozvoljeno: ${dozvoljene.join(', ')}.`,
+    );
+  }
+  return { select: { name: vrednost } };
+}
+
+/** Domen se prima i bez sheme ("illusion.rs"), a upisuje se kao pun URL. */
+function urlProp(vrednost) {
+  const t = String(vrednost).trim();
+  return { url: /^https?:\/\//i.test(t) ? t : `https://${t}` };
+}
+
+/**
+ * Pretvara ulaz alata u Notion properties objekat.
+ * Prazna/izostavljena polja se preskaču — kod izmene znače "ne diraj".
+ */
+function klijentProperties(u) {
+  const p = {};
+  const tekst = (v) => ({ rich_text: [{ text: { content: String(v) } }] });
+
+  if (u.naziv) p.Klijent = { title: [{ text: { content: String(u.naziv) } }] };
+  if (u.nazivZaFakturu) p['Naziv za fakturu'] = tekst(u.nazivZaFakturu);
+  if (u.pib) p.PIB = tekst(u.pib);
+  if (u.mb) p.MB = tekst(u.mb);
+  if (u.adresa) p.Adresa = tekst(u.adresa);
+  if (u.grad) p.Grad = tekst(u.grad);
+  if (u.opis) p.Opis = tekst(u.opis);
+  if (u.domen) p.Domen = urlProp(u.domen);
+  if (u.email) p.Email = { email: String(u.email).trim() };
+  if (u.telefon) p.Telefon = { phone_number: String(u.telefon).trim() };
+  if (u.odrzavanjeCena !== undefined && u.odrzavanjeCena !== null) {
+    p['Održavanje cena'] = { number: Number(u.odrzavanjeCena) };
+  }
+
+  for (const [kolona, polje] of [
+    ['Aktivan', 'aktivan'],
+    ['Tip', 'tip'],
+    ['Status', 'status'],
+    ['Faktura', 'faktura'],
+    ['Ponuda', 'ponuda'],
+    ['Trajanje', 'trajanje'],
+    ['Elementor', 'elementor'],
+    ['Moj hosting', 'mojHosting'],
+  ]) {
+    if (u[polje]) p[kolona] = selectProp(kolona, u[polje]);
+  }
+
+  return p;
+}
+
+/** Jedan red KLIJENTI baze u čitljivom obliku. */
+function klijentUObjekat(p) {
+  const props = p.properties || {};
+  const naziv = tekstProp(props['Naziv za fakturu']);
+  return {
+    id: p.id,
+    url: p.url,
+    klijent: titleOf(p),
+    naziv: naziv || titleOf(p),
+    domen: props.Domen?.url ?? null,
+    email: props.Email?.email ?? null,
+    telefon: props.Telefon?.phone_number ?? null,
+    adresa: tekstProp(props.Adresa),
+    grad: tekstProp(props.Grad),
+    pib: tekstProp(props.PIB),
+    mb: tekstProp(props.MB),
+    opis: tekstProp(props.Opis),
+    aktivan: props.Aktivan?.select?.name ?? null,
+    tip: props.Tip?.select?.name ?? null,
+    status: props.Status?.select?.name ?? null,
+    faktura: props.Faktura?.select?.name ?? null,
+    trajanje: props.Trajanje?.select?.name ?? null,
+    odrzavanjeCena: props['Održavanje cena']?.number ?? null,
+  };
+}
+
+function osiguranaBazaKlijenata() {
+  if (!config.notion.clientsDbId) {
+    throw new Error('Baza klijenata nije podešena (NOTION_CLIENTS_DB_ID nedostaje).');
+  }
+}
+
+/** Vraća sve redove KLIJENTI baze (paginirano). */
+async function sviKlijenti() {
+  osiguranaBazaKlijenata();
+  const out = [];
+  let cursor;
+  do {
+    const res = await getClient().databases.query({
+      database_id: config.notion.clientsDbId,
+      page_size: 100,
+      ...(cursor ? { start_cursor: cursor } : {}),
+    });
+    out.push(...res.results.map(klijentUObjekat));
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
+  return out;
+}
+
+/**
+ * Dodaje novog klijenta u KLIJENTI bazu.
+ *
+ * Odbija ako klijent sa istim nazivom već postoji — dupli red bi razbio i
+ * izradu faktura (pretraga bi našla dva pogotka) i monitoring.
+ */
+export async function addClient(ulaz) {
+  osiguranaBazaKlijenata();
+  if (!ulaz?.naziv) throw new Error('Nedostaje naziv klijenta.');
+
+  const postojeci = await sviKlijenti();
+  const isti = postojeci.find(
+    (k) => k.klijent.trim().toLowerCase() === String(ulaz.naziv).trim().toLowerCase(),
+  );
+  if (isti) {
+    throw new Error(
+      `Klijent "${isti.klijent}" već postoji u bazi. Koristi client_update da dopuniš podatke.`,
+    );
+  }
+
+  // Podrazumevano nov klijent je aktivan i tipa "Klijent".
+  const properties = klijentProperties({ aktivan: 'Aktivan', tip: 'Klijent', ...ulaz });
+
+  const page = await getClient().pages.create({
+    parent: { database_id: config.notion.clientsDbId },
+    properties,
+  });
+
+  logger.info(`Notion: dodat klijent "${ulaz.naziv}".`);
+  return { id: page.id, url: page.url, ...klijentUObjekat(page) };
+}
+
+/**
+ * Menja podatke postojećeg klijenta. Prosleđuju se samo polja koja se menjaju.
+ */
+export async function updateClient({ klijent, ...izmene }) {
+  osiguranaBazaKlijenata();
+  if (!klijent) throw new Error('Nedostaje naziv klijenta koji se menja.');
+
+  const pogodci = await findClient({ query: klijent });
+  if (pogodci.length === 0) {
+    throw new Error(`Ne nalazim klijenta "${klijent}" u bazi.`);
+  }
+  if (pogodci.length > 1) {
+    throw new Error(
+      `Naziv "${klijent}" odgovara većem broju klijenata: ${pogodci
+        .map((k) => k.klijent)
+        .join(', ')}. Budi precizniji.`,
+    );
+  }
+
+  const properties = klijentProperties(izmene);
+  if (Object.keys(properties).length === 0) {
+    throw new Error('Nije zadato nijedno polje za izmenu.');
+  }
+
+  const page = await getClient().pages.update({ page_id: pogodci[0].id, properties });
+  logger.info(`Notion: izmenjen klijent "${pogodci[0].klijent}".`);
+  return { id: page.id, url: page.url, ...klijentUObjekat(page) };
+}
+
+/** Lista klijenata, opciono filtrirana po statusu (Aktivan/Arhiva/U izradi). */
+export async function listClients({ aktivan, limit = 50 } = {}) {
+  const svi = await sviKlijenti();
+  const filtrirani = aktivan ? svi.filter((k) => k.aktivan === aktivan) : svi;
+  logger.debug(`Notion listClients: ${filtrirani.length} klijenata`);
+  return filtrirani.slice(0, limit);
+}
+
+// --------------------------------------------------------------- fakture ---
+
+/**
  * Nalazi klijenta po delu naziva i vraća njegove fiskalne podatke.
  * Traži i po naslovu (Klijent) i po koloni "Naziv za fakturu".
  */
 export async function findClient({ query }) {
-  if (!config.notion.clientsDbId) {
-    throw new Error('Baza klijenata nije podešena (NOTION_CLIENTS_DB_ID nedostaje).');
+  const svi = await sviKlijenti();
+  const needle = String(query).trim().toLowerCase();
+
+  // Prvo tačan pogodak — "Illusions" ne sme da bude dvosmisleno samo zato što
+  // u bazi postoji i "Illusions World doo".
+  const tacan = svi.filter(
+    (k) => k.klijent.toLowerCase() === needle || k.naziv.toLowerCase() === needle,
+  );
+  if (tacan.length > 0) {
+    logger.debug(`Notion findClient "${query}": tačan pogodak`);
+    return tacan;
   }
 
-  const res = await getClient().databases.query({
-    database_id: config.notion.clientsDbId,
-    page_size: 100,
-  });
-
-  const needle = String(query).trim().toLowerCase();
-  const svi = res.results.map((p) => {
-    const props = p.properties || {};
-    const naziv = tekstProp(props['Naziv za fakturu']);
-    return {
-      id: p.id,
-      url: p.url,
-      klijent: titleOf(p),
-      naziv: naziv || titleOf(p), // pun pravni naziv za fakturu
-      adresa: tekstProp(props['Adresa']),
-      grad: tekstProp(props['Grad']),
-      pib: tekstProp(props['PIB']),
-      mb: tekstProp(props['MB']),
-    };
-  });
-
   const pogodci = svi.filter(
-    (k) =>
-      k.klijent.toLowerCase().includes(needle) || k.naziv.toLowerCase().includes(needle),
+    (k) => k.klijent.toLowerCase().includes(needle) || k.naziv.toLowerCase().includes(needle),
   );
 
   logger.debug(`Notion findClient "${query}": ${pogodci.length} pogodaka`);
