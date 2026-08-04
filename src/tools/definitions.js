@@ -595,6 +595,66 @@ const definitions = [
     },
   },
 
+  // ---------- Fakture ----------
+  {
+    feature: 'invoices',
+    name: 'invoice_create',
+    description:
+      'PRAVI PDF fakture i šalje ga korisniku na pregled sa dugmadima Sačuvaj/Odbaci. ' +
+      'NE snima sam — na Drive i u Notion arhivu ide tek kad korisnik pritisne dugme. ' +
+      'Fiskalne podatke klijenta (naziv, adresa, PIB, MB) povlači iz Notion KLIJENTI baze ' +
+      'po nazivu — NIKADA ih ne izmišljaj i ne prosleđuj sam. Broj fakture se dodeljuje ' +
+      'automatski, ne traži ga od korisnika. Koristi kad korisnik kaže "napravi fakturu za X". ' +
+      'Ako fali podatak o iznosu ili opisu usluge, pitaj korisnika umesto da pretpostaviš.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        klijent: {
+          type: 'string',
+          description: 'Naziv klijenta (dovoljan deo naziva) — traži se u KLIJENTI bazi.',
+        },
+        stavke: {
+          type: 'array',
+          description: 'Stavke fakture. Obično jedna.',
+          items: {
+            type: 'object',
+            properties: {
+              opis: { type: 'string', description: 'Opis usluge kako ide na fakturu.' },
+              kolicina: { type: 'number', description: 'Količina (podrazumevano 1).' },
+              cena: { type: 'number', description: 'Jedinična cena u RSD, bez tačaka i zareza.' },
+            },
+            required: ['opis', 'cena'],
+          },
+        },
+        datumIzdavanja: { type: 'string', description: 'ISO datum (YYYY-MM-DD). Default: danas.' },
+        datumPrometa: {
+          type: 'string',
+          description: 'ISO datum prometa usluge. Default: isto kao datum izdavanja.',
+        },
+        mesto: { type: 'string', description: 'Mesto izdavanja/prometa. Default: sedište firme.' },
+      },
+      required: ['klijent', 'stavke'],
+    },
+  },
+  {
+    feature: 'invoices',
+    name: 'invoice_list',
+    description:
+      'Vraća izdate fakture iz arhive, najnovije prvo. Koristi za "koje sam fakture izdao", ' +
+      '"ko mi nije platio" (status "Nije plaćeno"), "koliko sam fakturisao".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['Nije plaćeno', 'Plaćeno', 'Stornirano'],
+          description: 'Opciono filtriranje po statusu naplate.',
+        },
+        limit: { type: 'number', description: 'Maksimalan broj faktura (default 25).' },
+      },
+    },
+  },
+
   // ---------- Rođendani ----------
   {
     feature: 'birthdays',

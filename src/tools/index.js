@@ -13,7 +13,8 @@ import * as dnevnik from '../services/dnevnik.js';
 import * as todo from '../services/todo.js';
 import { generateReport } from '../services/reports.js';
 import * as outbox from '../services/outbox.js';
-import { zatraziPotvrduMaila } from '../services/telegram.js';
+import { zatraziPotvrduMaila, zatraziPotvrduFakture } from '../services/telegram.js';
+import * as invoices from '../services/invoices.js';
 import {
   birthdaysToday,
   upcomingBirthdays,
@@ -106,6 +107,25 @@ const handlers = {
 
   // Izveštaji
   generate_report: (input) => generateReport(input),
+
+  // Fakture — priprema PDF i trazi potvrdu; ne arhivira sam.
+  invoice_create: async (input) => {
+    const f = await invoices.pripremiFakturu(input);
+    await zatraziPotvrduFakture(f.id, f.pdf, invoices.opisiFakturu(f), f.broj);
+    return {
+      sacuvano: false,
+      cekaPotvrdu: true,
+      broj: f.broj,
+      klijent: f.klijent.naziv,
+      iznos: f.iznos,
+      nedostajuPodaciKlijenta: f.fali,
+      poruka:
+        'Faktura je NACRTANA i poslata korisniku kao PDF sa dugmadima Sačuvaj/Odbaci. ' +
+        'NIJE jos snimljena na Drive ni upisana u arhivu — to se dešava tek kad korisnik ' +
+        'pritisne dugme. Reci mu da pogleda PDF i potvrdi.',
+    };
+  },
+  invoice_list: (input) => notion.listInvoices(input),
 
   // Rođendani
   birthdays_today: () => birthdaysToday(),

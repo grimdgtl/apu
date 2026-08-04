@@ -6,6 +6,7 @@ import { loadHistories, saveHistories } from '../store.js';
 import { transcribe } from './transcribe.js';
 import * as jobs from './jobs.js';
 import * as outbox from './outbox.js';
+import * as invoices from './invoices.js';
 import { sendMail } from './mail.js';
 
 /**
@@ -107,6 +108,7 @@ bot.command('status', (ctx) => {
     ['Glasovne poruke', featureEnabled.voice, 'OPENAI_API_KEY ili GROQ_API_KEY'],
     ['Monitoring sajtova', featureEnabled.siteMonitor, 'NOTION_API_KEY + NOTION_CLIENTS_DB_ID'],
     ['Rođendani', featureEnabled.birthdays, 'NOTION_API_KEY + NOTION_BIRTHDAYS_DB_ID'],
+    ['Fakture', featureEnabled.invoices, 'NOTION_CLIENTS_DB_ID + NOTION_INVOICES_DB_ID + Google'],
     ['Vremenska prognoza', featureEnabled.weather, ''],
     ['Izveštaji (Google Doc)', featureEnabled.reports, 'GOOGLE_CLIENT_ID/SECRET + REFRESH_TOKEN'],
   ];
@@ -118,6 +120,8 @@ bot.command('status', (ctx) => {
   const extra = [`\nModel: ${config.anthropic.model}`];
   const cekaju = outbox.broj();
   if (cekaju > 0) extra.push(`Mejlova čeka potvrdu: ${cekaju}`);
+  const fakture = invoices.broj();
+  if (fakture > 0) extra.push(`Faktura čeka potvrdu: ${fakture}`);
   if (featureEnabled.siteMonitor) {
     extra.push(
       `Provere sajtova: tiho "${config.cron.siteCheckSilent}", izveštaj "${config.cron.siteCheckReport}"`,
@@ -367,6 +371,64 @@ bot.action(/^mail:(send|cancel):([a-f0-9-]+)$/i, async (ctx) => {
   } catch (err) {
     logger.error('Slanje mejla nije uspelo:', err.message);
     await ctx.reply(`⚠️ Slanje nije uspelo: ${err.message}`);
+  }
+});
+
+// ------------------------------------------------ potvrda izrade fakture ---
+
+/**
+ * Šalje vlasniku gotov PDF fakture na pregled, sa dugmadima za arhiviranje.
+ * PDF ide kao dokument da može da se otvori i proveri pre nego što ode na
+ * Drive i u arhivu — kod finansijskog dokumenta sažetak nije dovoljan.
+ */
+export async function zatraziPotvrduFakture(id, pdf, opis, broj) {
+  await bot.telegram.sendDocument(
+    config.telegram.ownerChatId,
+    { source: pdf, filename: `Racun ${broj}.pdf` },
+    {
+      caption: opis.length > 1000 ? `${opis.slice(0, 1000)}…` : opis,
+      ...Markup.inlineKeyboard([
+        Markup.button.callback('✅ Sačuvaj', `inv:save:${id}`),
+        Markup.button.callback('❌ Odbaci', `inv:cancel:${id}`),
+      ]),
+    },
+  );
+}
+
+bot.action(/^inv:(save|cancel):([a-f0-9-]+)$/i, async (ctx) => {
+  if (!isOwner(ctx.chat?.id ?? ctx.from?.id)) {
+    await ctx.answerCbQuery('Nemaš dozvolu.').catch(() => {});
+    return;
+  }
+
+  const [, radnja, id] = ctx.match;
+
+  if (radnja === 'cancel') {
+    invoices.odbaci(id);
+    await ctx.answerCbQuery('Odbačeno.').catch(() => {});
+    await ctx.editMessageReplyMarkup(undefined).catch(() => {});
+    await ctx.reply('❌ Faktura nije sačuvana — broj ostaje slobodan za sledeću.');
+    return;
+  }
+
+  await ctx.answerCbQuery('Snimam...').catch(() => {});
+  await ctx.editMessageReplyMarkup(undefined).catch(() => {});
+
+  try {
+    const r = await invoices.potvrdiFakturu(id);
+    if (!r) {
+      await ctx.reply('Predlog je istekao ili je već obrađen. Napravi fakturu ponovo.');
+      return;
+    }
+    await ctx.reply(
+      `✅ Faktura ${r.broj} sačuvana.\n\n` +
+        `Klijent: ${r.klijent}\n` +
+        `Drive: ${r.drive.link}\n` +
+        `Notion: ${r.notion.url}`,
+    );
+  } catch (err) {
+    logger.error('Arhiviranje fakture nije uspelo:', err.message);
+    await ctx.reply(`⚠️ Nisam uspeo da sačuvam fakturu: ${err.message}`);
   }
 });
 

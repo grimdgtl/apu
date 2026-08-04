@@ -12,7 +12,6 @@
   "engines": {
     "node": ">=20"
   },
-
   "//overrides": "brace-expansion <=5.0.7 ima DoS (GHSA-mh99-v99m-4gvg), a stiže duboko kroz googleapis -> gaxios -> rimraf -> glob -> minimatch. Dok se lanac ne osveži uzvodno, forsiramo zakrpljenu verziju.",
   "overrides": {
     "brace-expansion": "^5.0.8"
@@ -26,6 +25,7 @@
     "mailparser": "^3.7.1",
     "node-cron": "^4.6.0",
     "nodemailer": "^9.0.3",
+    "pdfkit": "^0.19.1",
     "telegraf": "^4.16.3"
   }
 }

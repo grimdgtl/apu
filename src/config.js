@@ -71,6 +71,29 @@ export const config = {
     dnevnikDbId: optional('NOTION_DNEVNIK_DB_ID'),
     // To-do lista (Life stranica) — lični zadaci.
     todoDbId: optional('NOTION_TODO_DB_ID'),
+    // Arhiva izdatih faktura — odavde se uzima sledeći redni broj.
+    invoicesDbId: optional('NOTION_INVOICES_DB_ID'),
+  },
+
+  // Podaci koji idu na svaku fakturu. Menjaju se samo kroz .env — ne kroz chat,
+  // da model ne može da izmeni ko je izdavalac ni na koji račun se uplaćuje.
+  invoice: {
+    issuer: {
+      name: optional('INVOICE_ISSUER_NAME', 'Nikola Milić PR Labart'),
+      brand: optional('INVOICE_ISSUER_BRAND', 'LABART'),
+      address: optional('INVOICE_ISSUER_ADDRESS', 'Ruže Šulman 17/1'),
+      city: optional('INVOICE_ISSUER_CITY', 'Zrenjanin'),
+      phone: optional('INVOICE_ISSUER_PHONE', '+381640313796'),
+      pib: optional('INVOICE_ISSUER_PIB', '113343290'),
+      mb: optional('INVOICE_ISSUER_MB', '66755657'),
+      bankAccount: optional('INVOICE_ISSUER_ACCOUNT', '265-1100310081259-33'),
+      bankName: optional('INVOICE_ISSUER_BANK', 'Raiffeisenbank Srbija'),
+      responsiblePerson: optional('INVOICE_RESPONSIBLE_PERSON', 'Nikola Milić'),
+    },
+    comment: optional('INVOICE_COMMENT', 'Račun je važeći bez pečata i potpisa.'),
+    vatNote: optional('INVOICE_VAT_NOTE', 'Pravno lice nije u sistemu PDV-a.'),
+    // Folder na Drive-u u koji se snimaju PDF-ovi (prazno = koren Drive-a).
+    driveFolderId: optional('GOOGLE_INVOICES_FOLDER_ID'),
   },
 
   google: {
@@ -179,6 +202,16 @@ export const featureEnabled = {
   siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
   // Podsetnici za rođendane traže Notion ključ i ID baze Rođendani.
   birthdays: Boolean(config.notion.apiKey && config.notion.birthdaysDbId),
+  // Fakture traže bazu KLIJENTI (podaci klijenta), bazu FAKTURE (numeracija
+  // i arhiva) i Drive (snimanje PDF-a).
+  invoices: Boolean(
+    config.notion.apiKey &&
+      config.notion.clientsDbId &&
+      config.notion.invoicesDbId &&
+      config.google.clientId &&
+      config.google.clientSecret &&
+      config.google.refreshToken,
+  ),
   // Dnevna checklista traži Notion ključ i ID te baze.
   checklist: Boolean(config.notion.apiKey && config.notion.checklistDbId),
   dnevnik: Boolean(config.notion.apiKey && config.notion.dnevnikDbId),

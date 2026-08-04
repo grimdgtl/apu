@@ -87,6 +87,32 @@ export async function readFile({ fileId }) {
 }
 
 /**
+ * Uploaduje binarni fajl (npr. PDF fakture) na Drive.
+ *
+ * Odvojeno od createDoc jer taj konvertuje tekst u Google Doc; ovde fajl
+ * ostaje takav kakav jeste. Stream se pravi iz bafera da googleapis ne mora
+ * ceo sadržaj da drži kao string.
+ *
+ * @param {{name: string, buffer: Buffer, mimeType?: string, folderId?: string}} opts
+ */
+export async function uploadFile({ name, buffer, mimeType = 'application/pdf', folderId }) {
+  const d = getDrive();
+  const { Readable } = await import('node:stream');
+
+  const res = await d.files.create({
+    requestBody: {
+      name,
+      ...(folderId ? { parents: [folderId] } : {}),
+    },
+    media: { mimeType, body: Readable.from(buffer) },
+    fields: 'id, name, webViewLink',
+  });
+
+  logger.info(`Drive: uploadovan fajl "${name}" (${buffer.length} B, ${res.data.id})`);
+  return { id: res.data.id, name: res.data.name, link: res.data.webViewLink };
+}
+
+/**
  * Kreira novi Google Doc sa zadatim tekstom.
  */
 export async function createDoc({ name, content = '', folderId }) {

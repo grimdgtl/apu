@@ -63,12 +63,32 @@ Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →
 | **Semantic search** | `semantic_search`, `semantic_reindex` |
 | **Uptime history** | `monitor_uptime` |
 | **Birthdays** | `birthdays_today`, `birthdays_upcoming`, `birthday_mark_greeted` |
+| **Invoices** | `invoice_create` (prepares only — see below), `invoice_list` |
 | **Weather** | `weather_get` |
 | **Website monitoring** | `monitor_check_sites` |
 | **Reports** | `generate_report` (writes a report into a Google Doc) |
 
 Tools whose services are not configured are **switched off automatically** — the model
 never sees them. Check the current state with the `/status` command.
+
+### Invoices
+
+Say "napravi fakturu za <client>, <service>, <amount>" and the bot pulls the client's legal
+name, address, PIB and MB from the **KLIJENTI** database, takes the next number in the
+`NNN-YYYY` series from the **FAKTURE** archive, renders the PDF, and sends it to you in
+Telegram **as a document** with **Sačuvaj / Odbaci** buttons. Only on Sačuvaj does it upload
+to Drive and write the archive row.
+
+Three things are deliberately out of the model's reach. Issuer details — including the bank
+account money is paid into — come from `.env`, never from the conversation. Client fiscal
+data is read from Notion rather than accepted as tool input, so a PIB can never be
+hallucinated onto a financial document. And the number is only committed on confirmation, so
+declining a draft leaves no gap in the series; if another invoice claimed that number
+meanwhile, the PDF is re-rendered with the next free one.
+
+The layout is drawn with `pdfkit` (~1 MB, no headless browser). Fonts and logo live in
+`assets/` — replace `assets/logo.png` and the `assets/fonts/Montserrat-*.ttf` files to
+rebrand. Without a logo file the issuer's brand name is typeset instead.
 
 ### Sending email requires a button press
 
@@ -91,6 +111,9 @@ documents, website content): it is treated as data, never as instructions.
 apu/
 ├── Dockerfile              # optional build (see Deployment)
 ├── .env.example            # every environment variable
+├── assets/
+│   ├── logo.png            # logo printed on invoices
+│   └── fonts/              # Montserrat (static cuts — pdfkit cannot embed variable fonts)
 ├── scripts/
 │   └── google-auth.js      # one-off Google refresh-token helper
 └── src/
@@ -127,7 +150,7 @@ apu/
 
 ## Installation
 
-Requires **Node.js ≥ 18.17** (22+ recommended).
+Requires **Node.js ≥ 20** (22+ recommended).
 
 ```bash
 git clone https://github.com/grimdgtl/apu.git
@@ -228,6 +251,9 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 | `NOTION_DNEVNIK_DB_ID` | | — | Journal |
 | `NOTION_TODO_DB_ID` | | — | Personal to-do list |
 | `NOTION_BIRTHDAYS_DB_ID` | | — | Birthdays database (Dashboard → Life) |
+| `NOTION_INVOICES_DB_ID` | | — | Invoice archive; the next invoice number is derived from it |
+| `GOOGLE_INVOICES_FOLDER_ID` | | — | Drive folder invoice PDFs are saved into (empty = Drive root) |
+| `INVOICE_ISSUER_*` | | see `.env.example` | Issuer details printed on every invoice |
 | `GOOGLE_CLIENT_ID` | | — | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | | — | OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | | `http://localhost:3000/oauth2callback` | Used by the auth script only |

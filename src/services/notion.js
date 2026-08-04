@@ -181,6 +181,138 @@ export async function listActiveSites() {
   return sites;
 }
 
+// --------------------------------------------------------------- fakture ---
+
+/** Čita rich_text kolonu kao običan tekst. */
+function tekstProp(prop) {
+  return (prop?.rich_text || []).map((t) => t.plain_text).join('').trim();
+}
+
+/**
+ * Nalazi klijenta po delu naziva i vraća njegove fiskalne podatke.
+ * Traži i po naslovu (Klijent) i po koloni "Naziv za fakturu".
+ */
+export async function findClient({ query }) {
+  if (!config.notion.clientsDbId) {
+    throw new Error('Baza klijenata nije podešena (NOTION_CLIENTS_DB_ID nedostaje).');
+  }
+
+  const res = await getClient().databases.query({
+    database_id: config.notion.clientsDbId,
+    page_size: 100,
+  });
+
+  const needle = String(query).trim().toLowerCase();
+  const svi = res.results.map((p) => {
+    const props = p.properties || {};
+    const naziv = tekstProp(props['Naziv za fakturu']);
+    return {
+      id: p.id,
+      url: p.url,
+      klijent: titleOf(p),
+      naziv: naziv || titleOf(p), // pun pravni naziv za fakturu
+      adresa: tekstProp(props['Adresa']),
+      grad: tekstProp(props['Grad']),
+      pib: tekstProp(props['PIB']),
+      mb: tekstProp(props['MB']),
+    };
+  });
+
+  const pogodci = svi.filter(
+    (k) =>
+      k.klijent.toLowerCase().includes(needle) || k.naziv.toLowerCase().includes(needle),
+  );
+
+  logger.debug(`Notion findClient "${query}": ${pogodci.length} pogodaka`);
+  return pogodci;
+}
+
+/**
+ * Sledeći broj fakture za tekuću godinu, u formatu "NNN-GGGG".
+ *
+ * Broj se izvodi iz same arhive (najveći postojeći za tu godinu + 1) umesto
+ * iz lokalnog brojača — tako se ne razilazi sa stvarnim stanjem ako se neka
+ * faktura doda ručno ili se izgubi data folder.
+ */
+export async function nextInvoiceNumber(godina = new Date().getFullYear()) {
+  if (!featureEnabled.invoices) {
+    throw new Error('Fakture nisu podešene (NOTION_INVOICES_DB_ID ili Google nedostaje).');
+  }
+
+  const res = await getClient().databases.query({
+    database_id: config.notion.invoicesDbId,
+    page_size: 100,
+  });
+
+  let najveci = 0;
+  for (const p of res.results) {
+    const broj = titleOf(p); // "041-2026"
+    const m = /^(\d+)\s*-\s*(\d{4})$/.exec(broj.trim());
+    if (m && Number(m[2]) === godina) {
+      najveci = Math.max(najveci, Number(m[1]));
+    }
+  }
+
+  const sledeci = String(najveci + 1).padStart(3, '0');
+  logger.info(`Notion: sledeći broj fakture za ${godina} je ${sledeci}-${godina}`);
+  return `${sledeci}-${godina}`;
+}
+
+/** Upisuje izdatu fakturu u arhivu. */
+export async function addInvoice({
+  broj,
+  clientPageId,
+  datumIzdavanja,
+  datumPrometa,
+  iznos,
+  stavke,
+  mesto,
+  pdfUrl,
+}) {
+  const page = await getClient().pages.create({
+    parent: { database_id: config.notion.invoicesDbId },
+    properties: {
+      Broj: { title: [{ text: { content: broj } }] },
+      ...(clientPageId ? { Klijent: { relation: [{ id: clientPageId }] } } : {}),
+      'Datum izdavanja': { date: { start: datumIzdavanja } },
+      'Datum prometa': { date: { start: datumPrometa } },
+      Iznos: { number: Number(iznos) },
+      Stavke: { rich_text: [{ text: { content: String(stavke).slice(0, 1900) } }] },
+      Status: { select: { name: 'Nije plaćeno' } },
+      ...(mesto ? { Mesto: { rich_text: [{ text: { content: mesto } }] } } : {}),
+      ...(pdfUrl ? { PDF: { url: pdfUrl } } : {}),
+    },
+  });
+
+  logger.info(`Notion: faktura ${broj} upisana u arhivu.`);
+  return { id: page.id, url: page.url, broj };
+}
+
+/** Lista izdatih faktura, najnovije prvo (za "ko mi duguje"). */
+export async function listInvoices({ status, limit = 25 } = {}) {
+  if (!featureEnabled.invoices) {
+    throw new Error('Fakture nisu podešene (NOTION_INVOICES_DB_ID nedostaje).');
+  }
+
+  const res = await getClient().databases.query({
+    database_id: config.notion.invoicesDbId,
+    page_size: limit,
+    ...(status ? { filter: { property: 'Status', select: { equals: status } } } : {}),
+    sorts: [{ property: 'Datum izdavanja', direction: 'descending' }],
+  });
+
+  return res.results.map((p) => ({
+    id: p.id,
+    url: p.url,
+    broj: titleOf(p),
+    iznos: p.properties?.Iznos?.number ?? null,
+    status: p.properties?.Status?.select?.name ?? null,
+    datumIzdavanja: p.properties?.['Datum izdavanja']?.date?.start ?? null,
+    stavke: tekstProp(p.properties?.Stavke),
+    pdf: p.properties?.PDF?.url ?? null,
+  }));
+}
+
 // ------------------------------------------------------------- rođendani ---
 
 /**
