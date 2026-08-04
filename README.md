@@ -87,6 +87,12 @@ hallucinated onto a financial document. And the number is only committed on conf
 declining a draft leaves no gap in the series; if another invoice claimed that number
 meanwhile, the PDF is re-rendered with the next free one.
 
+Numbering runs per year and is derived from the archive, so it self-corrects if a row is
+added by hand. Invoices issued before the bot existed are not in the archive, so
+`INVOICE_LAST_NUMBER` supplies the starting point — it applies **only to its own year**, so
+January rolls over to `001-<new year>` with no configuration change. The year comes from the
+invoice's issue date, not the clock, so a backdated invoice stays in the right series.
+
 The layout is drawn with `pdfkit` (~1 MB, no headless browser). Fonts and logo live in
 `assets/` — replace `assets/logo.png` and the `assets/fonts/Montserrat-*.ttf` files to
 rebrand. Without a logo file the issuer's brand name is typeset instead.
@@ -259,6 +265,7 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 | `NOTION_INVOICES_DB_ID` | | — | Invoice archive; the next invoice number is derived from it |
 | `GOOGLE_INVOICES_FOLDER_ID` | | — | Drive folder invoice PDFs are saved into (empty = Drive root) |
 | `INVOICE_ISSUER_*` | | see `.env.example` | Issuer details printed on every invoice |
+| `INVOICE_LAST_NUMBER` | | `059-2026` | Last invoice issued before the bot; numbering continues from it |
 | `GOOGLE_CLIENT_ID` | | — | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | | — | OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | | `http://localhost:3000/oauth2callback` | Used by the auth script only |

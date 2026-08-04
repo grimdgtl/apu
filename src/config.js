@@ -92,6 +92,10 @@ export const config = {
     },
     comment: optional('INVOICE_COMMENT', 'Račun je važeći bez pečata i potpisa.'),
     vatNote: optional('INVOICE_VAT_NOTE', 'Pravno lice nije u sistemu PDV-a.'),
+    // Poslednja faktura izdata PRE ovog bota (format "NNN-GGGG"). Arhiva ne
+    // sadrži starije fakture, pa bi numeracija inače krenula od 001.
+    // Važi samo za svoju godinu — sledeća godina svejedno kreće od 001.
+    lastKnownNumber: optional('INVOICE_LAST_NUMBER', '059-2026'),
     // Folder na Drive-u u koji se snimaju PDF-ovi (prazno = koren Drive-a).
     driveFolderId: optional('GOOGLE_INVOICES_FOLDER_ID'),
   },

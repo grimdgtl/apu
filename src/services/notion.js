@@ -406,31 +406,59 @@ export async function findClient({ query }) {
   return pogodci;
 }
 
+/** Rastavlja "059-2026" na {redni: 59, godina: 2026}; null ako format ne valja. */
+function razloziBroj(tekst) {
+  const m = /^(\d+)\s*-\s*(\d{4})$/.exec(String(tekst).trim());
+  return m ? { redni: Number(m[1]), godina: Number(m[2]) } : null;
+}
+
 /**
- * Sledeći broj fakture za tekuću godinu, u formatu "NNN-GGGG".
+ * Sledeći broj fakture za zadatu godinu, u formatu "NNN-GGGG".
  *
  * Broj se izvodi iz same arhive (najveći postojeći za tu godinu + 1) umesto
  * iz lokalnog brojača — tako se ne razilazi sa stvarnim stanjem ako se neka
  * faktura doda ručno ili se izgubi data folder.
+ *
+ * Fakture izdate PRE ovog bota nisu u arhivi, pa bi prva krenula od 001 i
+ * ponovila već izdat broj. Zato se poslednji ručno izdat broj zadaje kroz
+ * INVOICE_LAST_NUMBER. Taj prag važi ISKLJUČIVO za svoju godinu — kad dođe
+ * nova godina, brojanje samo krene od 001, bez ikakve izmene podešavanja.
  */
 export async function nextInvoiceNumber(godina = new Date().getFullYear()) {
   if (!featureEnabled.invoices) {
     throw new Error('Fakture nisu podešene (NOTION_INVOICES_DB_ID ili Google nedostaje).');
   }
 
-  const res = await getClient().databases.query({
-    database_id: config.notion.invoicesDbId,
-    page_size: 100,
-  });
-
   let najveci = 0;
-  for (const p of res.results) {
-    const broj = titleOf(p); // "041-2026"
-    const m = /^(\d+)\s*-\s*(\d{4})$/.exec(broj.trim());
-    if (m && Number(m[2]) === godina) {
-      najveci = Math.max(najveci, Number(m[1]));
-    }
+
+  const prag = razloziBroj(config.invoice.lastKnownNumber ?? '');
+  if (config.invoice.lastKnownNumber && !prag) {
+    logger.warn(
+      `INVOICE_LAST_NUMBER="${config.invoice.lastKnownNumber}" nije u formatu NNN-GGGG — ignorišem.`,
+    );
   }
+  if (prag && prag.godina === godina) {
+    najveci = prag.redni;
+  }
+
+  // Arhiva je merodavna ako je odmakla dalje od praga.
+  let cursor;
+  do {
+    const res = await getClient().databases.query({
+      database_id: config.notion.invoicesDbId,
+      page_size: 100,
+      ...(cursor ? { start_cursor: cursor } : {}),
+    });
+
+    for (const p of res.results) {
+      const broj = razloziBroj(titleOf(p));
+      if (broj && broj.godina === godina) {
+        najveci = Math.max(najveci, broj.redni);
+      }
+    }
+
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
 
   const sledeci = String(najveci + 1).padStart(3, '0');
   logger.info(`Notion: sledeći broj fakture za ${godina} je ${sledeci}-${godina}`);
