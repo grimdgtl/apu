@@ -52,7 +52,9 @@ export const config = {
   anthropic: {
     apiKey: required('ANTHROPIC_API_KEY'),
     model: optional('ANTHROPIC_MODEL', 'claude-sonnet-5'),
-    maxTokens: 4096,
+    // 4096 je znalo da preseče odgovor usred niza poziva alata; presečen
+    // odgovor je onda kidao par tool_use/tool_result i rušio ceo razgovor.
+    maxTokens: numeric('ANTHROPIC_MAX_TOKENS', 8192),
   },
 
   notion: {

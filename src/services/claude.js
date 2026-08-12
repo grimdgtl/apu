@@ -72,6 +72,12 @@ function systemPrompt() {
     '  ostvario (npr. koliko je puta bio u teretani ove nedelje, koliki mu je skor). ',
     '  Budi kratak, topao i bez patetike.',
     '- Pre zakazivanja sastanka proveri slobodne termine ako je potrebno.',
+    '- Za sastanak koji se PONAVLJA ("svake srede", "svakog 1. u mesecu", "do kraja godine") ',
+    '  koristi polje `ponavljanje` u calendar_create_event — JEDAN poziv, ne desetine ',
+    '  pojedinačnih događaja. Ako se termini razlikuju po danu (sreda u 12:00, petak u 11:30), ',
+    '  napravi po jedan ponavljajući događaj za svaki termin.',
+    '- Ako zadatak traži jako mnogo poziva alata, ne kreći da ih nabrajaš — objasni korisniku ',
+    '  koliko ih ima i predloži da se podeli ili uradi drugačije.',
     '- Kada rukuješ datumima, koristi ISO 8601 format i uzmi u obzir vremensku zonu.',
     '- Kada korisnik kaže da je čestitao rođendan (npr. "čestitao sam Nikoli", "javio sam ',
     '  se Mrđi"), OBAVEZNO pozovi birthday_mark_greeted — inače će ga bot uveče ponovo ',
@@ -110,15 +116,38 @@ export async function runAgent(messages, { maxSteps = 8 } = {}) {
       messages: working,
     });
 
-    // Dodaj odgovor asistenta u istoriju.
-    working.push({ role: 'assistant', content: response.content });
-
-    if (response.stop_reason !== 'tool_use') {
-      const text = response.content
+    const tekstOdgovora = () =>
+      response.content
         .filter((b) => b.type === 'text')
         .map((b) => b.text)
         .join('\n')
         .trim();
+
+    // Odgovor presečen na max_tokens ume da stane USRED niza poziva alata.
+    // Takvi tool_use blokovi nikad ne dobiju svoj tool_result, a Anthropic
+    // odbija svaki naredni zahtev sa nesparenim pozivom — pa bi jedan
+    // presečen odgovor trajno oborio razgovor. Zato ga ne upisujemo u
+    // istoriju: pamtimo samo tekst i tražimo od korisnika manji zahtev.
+    if (response.stop_reason === 'max_tokens') {
+      const tekst = tekstOdgovora();
+      logger.warn('runAgent: odgovor presečen na max_tokens — odbacujem nesparene pozive alata.');
+
+      if (tekst) working.push({ role: 'assistant', content: tekst });
+
+      return {
+        text:
+          tekst ||
+          'Zahtev je preobiman za jedan odgovor — podeli ga na manje delove ' +
+            '(npr. jedan po jedan termin ili kraći period).',
+        messages: working,
+      };
+    }
+
+    // Dodaj odgovor asistenta u istoriju.
+    working.push({ role: 'assistant', content: response.content });
+
+    if (response.stop_reason !== 'tool_use') {
+      const text = tekstOdgovora();
       return { text: text || '(prazan odgovor)', messages: working };
     }
 

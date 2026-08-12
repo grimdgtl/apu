@@ -141,16 +141,64 @@ export async function findFreeSlots({
   return result;
 }
 
+const DANI_RRULE = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+const UCESTALOSTI = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+
 /**
- * Kreira događaj (sastanak).
+ * Sastavlja RRULE za ponavljajući događaj.
+ *
+ * Google čuva ponavljanje kao JEDAN događaj sa pravilom, umesto stotinu
+ * pojedinačnih. Bez ovoga bi "svake srede do kraja godine" značilo 21 zaseban
+ * poziv alata — što modelu probije ograničenje odgovora i obori ceo zahtev.
+ *
+ * @param {{ucestalost, dani?, interval?, do?, broj?}} p
+ */
+function napraviRrule(p) {
+  const ucestalost = String(p.ucestalost || 'WEEKLY').toUpperCase();
+  if (!UCESTALOSTI.includes(ucestalost)) {
+    throw new Error(`Nepoznata učestalost "${p.ucestalost}". Dozvoljeno: ${UCESTALOSTI.join(', ')}.`);
+  }
+
+  const delovi = [`FREQ=${ucestalost}`];
+
+  if (p.interval && Number(p.interval) > 1) {
+    delovi.push(`INTERVAL=${Number(p.interval)}`);
+  }
+
+  if (Array.isArray(p.dani) && p.dani.length) {
+    const dani = p.dani.map((d) => String(d).toUpperCase());
+    const nepoznat = dani.find((d) => !DANI_RRULE.includes(d));
+    if (nepoznat) {
+      throw new Error(`Nepoznat dan "${nepoznat}". Dozvoljeno: ${DANI_RRULE.join(', ')}.`);
+    }
+    delovi.push(`BYDAY=${dani.join(',')}`);
+  }
+
+  if (p.do) {
+    // UNTIL mora biti UTC vremenska oznaka; uzimamo kraj tog dana.
+    const kraj = new Date(`${String(p.do).slice(0, 10)}T23:59:59Z`);
+    if (Number.isNaN(kraj.getTime())) {
+      throw new Error(`Neispravan datum kraja ponavljanja: "${p.do}".`);
+    }
+    delovi.push(`UNTIL=${kraj.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}`);
+  } else if (p.broj && Number(p.broj) > 0) {
+    delovi.push(`COUNT=${Number(p.broj)}`);
+  }
+
+  return `RRULE:${delovi.join(';')}`;
+}
+
+/**
+ * Kreira događaj (sastanak), jednokratan ili ponavljajući.
  *
  * @param {object} opts
  * @param {string} opts.summary naslov
- * @param {string} opts.start ISO vreme početka
- * @param {string} opts.end ISO vreme kraja
+ * @param {string} opts.start ISO vreme početka (prvog termina)
+ * @param {string} opts.end ISO vreme kraja (prvog termina)
  * @param {string} [opts.location]
  * @param {string} [opts.description]
  * @param {string[]} [opts.attendees] email adrese učesnika
+ * @param {object} [opts.ponavljanje] {ucestalost, dani, interval, do, broj}
  */
 export async function createEvent({
   summary,
@@ -159,6 +207,7 @@ export async function createEvent({
   location,
   description,
   attendees = [],
+  ponavljanje,
 }) {
   const cal = getCalendar();
 
@@ -170,6 +219,7 @@ export async function createEvent({
     end: { dateTime: new Date(end).toISOString(), timeZone: config.timezone },
     attendees: attendees.map((email) => ({ email })),
     reminders: { useDefault: true },
+    ...(ponavljanje ? { recurrence: [napraviRrule(ponavljanje)] } : {}),
   };
 
   const res = await cal.events.insert({
@@ -178,7 +228,9 @@ export async function createEvent({
     sendUpdates: attendees.length ? 'all' : 'none',
   });
 
-  logger.info(`Calendar: kreiran događaj "${summary}" (${res.data.id})`);
+  logger.info(
+    `Calendar: kreiran ${ponavljanje ? 'ponavljajući ' : ''}događaj "${summary}" (${res.data.id})`,
+  );
   return {
     id: res.data.id,
     summary: res.data.summary,
@@ -186,6 +238,7 @@ export async function createEvent({
     end: res.data.end?.dateTime,
     location: res.data.location || null,
     attendees: (res.data.attendees || []).map((a) => a.email),
+    ponavljanje: res.data.recurrence?.[0] ?? null,
     htmlLink: res.data.htmlLink,
   };
 }

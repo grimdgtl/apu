@@ -57,7 +57,7 @@ Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →
 | **Journal** | `dnevnik_get`, `dnevnik_write` |
 | **Personal to-do list** | `todo_list`, `todo_add`, `todo_set_status` |
 | **Google Drive** | `drive_search`, `drive_read`, `drive_create` |
-| **Google Calendar** | `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_event` |
+| **Google Calendar** | `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_event` (incl. recurring) |
 | **Email** | `mail_list_unread`, `mail_save_draft`, `mail_send` (prepares only — see below) |
 | **Long-term memory** | `memory_save`, `memory_list`, `memory_update`, `memory_forget` |
 | **Habit insights** | `insights_get` |
@@ -96,6 +96,17 @@ invoice's issue date, not the clock, so a backdated invoice stays in the right s
 The layout is drawn with `pdfkit` (~1 MB, no headless browser). Fonts and logo live in
 `assets/` — replace `assets/logo.png` and the `assets/fonts/Montserrat-*.ttf` files to
 rebrand. Without a logo file the issuer's brand name is typeset instead.
+
+### Recurring events
+
+`calendar_create_event` takes a `ponavljanje` object and stores the series as a single Google
+Calendar event with an `RRULE`. This is not only tidier — asking for "every Wednesday until
+the end of the year" as individual events meant ~21 tool calls, which overran the model's
+response limit and truncated the reply mid-call. A truncated response leaves a `tool_use`
+block with no `tool_result`, and the Anthropic API rejects every later request that replays
+it, so one oversized ask used to brick the conversation until `/reset`. Conversation history
+is now sanitised both when loaded and before it is written, so an unpaired tool call is
+dropped instead of persisting.
 
 ### Sending email requires a button press
 

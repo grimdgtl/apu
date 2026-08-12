@@ -31,8 +31,91 @@ bot.catch((err, ctx) => {
   ctx?.reply?.('Ups, došlo je do greške pri obradi. Pokušaj ponovo.').catch(() => {});
 });
 
+/**
+ * Izbacuje pozive alata koji nemaju svoj rezultat (i obrnuto).
+ *
+ * Anthropic odbija ceo zahtev ako u istoriji postoji `tool_use` bez pratećeg
+ * `tool_result`. Takav par se pokida kad odgovor bude presečen na max_tokens
+ * ili kad proces padne usred izvršavanja alata — a pošto se istorija čuva na
+ * disk, jedna takva poruka trajno obori SVAKI naredni razgovor, sa porukom
+ * "Ups, došlo je do greške". Zato se čisti i pri učitavanju i pre upisa, pa
+ * se stanje samo popravlja bez /reset.
+ */
+export function ocistiIstoriju(messages) {
+  if (!Array.isArray(messages)) return [];
+
+  // 1. Ukloni tool_use bez rezultata u sledećoj poruci.
+  const prvi = [];
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const blokovi = Array.isArray(m?.content) ? m.content : null;
+
+    if (m?.role === 'assistant' && blokovi?.some((b) => b?.type === 'tool_use')) {
+      const sledeci = messages[i + 1];
+      const rezultati = new Set(
+        (Array.isArray(sledeci?.content) ? sledeci.content : [])
+          .filter((b) => b?.type === 'tool_result')
+          .map((b) => b.tool_use_id),
+      );
+
+      const nespareni = blokovi.filter((b) => b?.type === 'tool_use' && !rezultati.has(b.id));
+      if (nespareni.length > 0) {
+        const tekst = blokovi.filter((b) => b?.type === 'text' && b.text?.trim());
+        if (tekst.length) prvi.push({ ...m, content: tekst });
+        continue; // poziv bez rezultata se baca
+      }
+    }
+
+    prvi.push(m);
+  }
+
+  // 2. Ukloni tool_result koji je ostao bez svog poziva.
+  const poznatiPozivi = new Set();
+  for (const m of prvi) {
+    if (Array.isArray(m?.content)) {
+      for (const b of m.content) if (b?.type === 'tool_use') poznatiPozivi.add(b.id);
+    }
+  }
+
+  const drugi = [];
+  for (const m of prvi) {
+    if (m?.role === 'user' && Array.isArray(m.content)) {
+      const zadrzani = m.content.filter(
+        (b) => b?.type !== 'tool_result' || poznatiPozivi.has(b.tool_use_id),
+      );
+      if (zadrzani.length === 0) continue;
+      drugi.push({ ...m, content: zadrzani });
+      continue;
+    }
+    drugi.push(m);
+  }
+
+  // 3. Prazna poruka je takođe neispravna za API.
+  const cist = drugi.filter((m) => {
+    const sadrzaj = m?.content;
+    if (typeof sadrzaj === 'string') return sadrzaj.trim().length > 0;
+    return Array.isArray(sadrzaj) && sadrzaj.length > 0;
+  });
+
+  // Razgovor mora da počne korisnikovom porukom.
+  while (cist.length && cist[0].role !== 'user') cist.shift();
+
+  return cist;
+}
+
 // Istorija razgovora po chatId — učitana sa diska, pa preživi restart.
+// Odmah se čisti: ako je prošli proces ostavio nespareni poziv alata, bez
+// ovoga bi bot bio trajno zaglavljen na "Ups, došlo je do greške".
 const histories = loadHistories();
+for (const [chatId, poruke] of histories) {
+  const cist = ocistiIstoriju(poruke);
+  if (cist.length !== poruke.length) {
+    logger.warn(
+      `Istorija (chat ${chatId}): uklonjeno ${poruke.length - cist.length} neispravnih poruka.`,
+    );
+    histories.set(chatId, cist);
+  }
+}
 
 // Broj PRAVIH razmena (tvojih tekstualnih poruka) koje pamtimo.
 // Ne brojimo sirove poruke, jer jedan upit sa alatima napravi njih 4+.
@@ -152,7 +235,8 @@ async function respondTo(ctx, chatId, userContent) {
   try {
     const { text, messages } = await runAgent(history);
     // Sačuvaj kompletnu istoriju (uključujući tool pozive) za kontekst.
-    histories.set(key(chatId), trimHistory(messages));
+    // Čistimo pre upisa da nespareni poziv alata nikad ne završi na disku.
+    histories.set(key(chatId), ocistiIstoriju(trimHistory(messages)));
     saveHistories(histories);
     await replyChunked(ctx, text);
   } catch (err) {

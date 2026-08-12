@@ -625,6 +625,40 @@ const definitions = [
           items: { type: 'string' },
           description: 'Email adrese učesnika (opciono).',
         },
+        ponavljanje: {
+          type: 'object',
+          description:
+            'Za DOGAĐAJ KOJI SE PONAVLJA. OBAVEZNO ga koristi umesto pravljenja više ' +
+            'pojedinačnih događaja — "svake srede do kraja godine" je JEDAN poziv sa ' +
+            'ponavljanjem, ne dvadeset poziva. Ako se termini razlikuju po danu ' +
+            '(npr. sreda u 12:00 i petak u 11:30), napravi po jedan ponavljajući ' +
+            'događaj za svaki termin.',
+          properties: {
+            ucestalost: {
+              type: 'string',
+              enum: ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'],
+              description: 'Koliko često se ponavlja.',
+            },
+            dani: {
+              type: 'array',
+              items: { type: 'string', enum: ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] },
+              description: 'Dani u nedelji za WEEKLY (npr. ["WE"] za sredu).',
+            },
+            interval: {
+              type: 'number',
+              description: 'Na svakih koliko perioda (2 = svake druge nedelje). Default 1.',
+            },
+            do: {
+              type: 'string',
+              description: 'ISO datum poslednjeg ponavljanja, npr. "2026-12-31".',
+            },
+            broj: {
+              type: 'number',
+              description: 'Alternativa za "do" — koliko puta ukupno da se ponovi.',
+            },
+          },
+          required: ['ucestalost'],
+        },
       },
       required: ['summary', 'start', 'end'],
     },
