@@ -299,7 +299,7 @@ Only rows with `Aktivan = Aktivan` **and** a filled `Domen` are checked by the m
 
 The next invoice number is derived from this table, so it stays correct even if you add a row
 by hand. If you already issue invoices outside the bot, set `INVOICE_LAST_NUMBER` (e.g.
-`059-2026`) so numbering continues instead of restarting at `001`.
+`012-2026`) so numbering continues instead of restarting at `001`.
 </details>
 
 <details>
