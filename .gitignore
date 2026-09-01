@@ -7,3 +7,6 @@ node_modules/
 # Lokalni podaci — istorija razgovora, zapamćene činjenice, indeks pretrage,
 # istorija monitoringa. Nikad ne idu u repozitorijum.
 data/
+
+# Logo je licni fajl — svako stavlja svoj (assets/logo.example.png je samo primer).
+assets/logo.png

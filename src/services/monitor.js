@@ -81,7 +81,7 @@ async function checkSite(site) {
       signal: controller.signal,
       headers: {
         // Neki serveri blokiraju zahteve bez "pravog" User-Agent-a.
-        'User-Agent': 'APU-Monitor/1.0 (+https://grim-digital.com)',
+        'User-Agent': 'APU-Monitor/1.0',
       },
     });
     const ms = Date.now() - started;

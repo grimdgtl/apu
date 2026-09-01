@@ -175,7 +175,7 @@ apu/
 Requires **Node.js ≥ 20** (22+ recommended).
 
 ```bash
-git clone https://github.com/grimdgtl/apu.git
+git clone https://github.com/<korisnik>/apu.git
 cd apu
 npm install
 cp .env.example .env
@@ -276,7 +276,7 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 | `NOTION_INVOICES_DB_ID` | | — | Invoice archive; the next invoice number is derived from it |
 | `GOOGLE_INVOICES_FOLDER_ID` | | — | Drive folder invoice PDFs are saved into (empty = Drive root) |
 | `INVOICE_ISSUER_*` | | see `.env.example` | Issuer details printed on every invoice |
-| `INVOICE_LAST_NUMBER` | | `059-2026` | Last invoice issued before the bot; numbering continues from it |
+| `INVOICE_LAST_NUMBER` | | — | Last invoice issued before the bot (e.g. `007-2026`); numbering continues from it |
 | `GOOGLE_CLIENT_ID` | | — | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | | — | OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | | `http://localhost:3000/oauth2callback` | Used by the auth script only |
@@ -291,7 +291,7 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 | `OPENAI_API_KEY` | | — | Whisper transcription |
 | `GROQ_API_KEY` | | — | Whisper alternative |
 | `TIMEZONE` | | `Europe/Belgrade` | Timezone for cron jobs and events |
-| `WEATHER_LOCATION` | | `Novi Sad` | City name shown in messages |
+| `WEATHER_LOCATION` | | `Beograd` | City name shown in messages |
 | `WEATHER_LAT` / `WEATHER_LON` | | `45.2671` / `19.8335` | Coordinates |
 | `SITE_MONITOR_TIMEOUT_MS` | | `15000` | Threshold for "site down" |
 | `SITE_MONITOR_SLOW_MS` | | `5000` | Threshold for "slow" |
@@ -443,7 +443,7 @@ Everything else is plain language (the bot is used in Serbian):
 > comes back every year with nothing to maintain. Monday's 6:00 greeting previews the whole
 > week so a present can be planned ahead of the day itself.
 
-> **Birthdays close themselves out.** Tell the bot "čestitao sam Nikoli" and it records
+> **Birthdays close themselves out.** Tell the bot "čestitao sam Marku" and it records
 > that (in `data/birthdays.json`, so `/reset` does not wipe it) and drops that person from
 > the 19:00 reminder. Only the month and day are matched, so the birth year in Notion is
 > free to be the real one — it is used to work out the age. People born on 29 February are

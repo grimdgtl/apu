@@ -7,8 +7,8 @@ import { danasISO, nedeljaOko } from './checklist.js';
  * To-do lista (Notion baza na Life stranici) — lični zadaci.
  *
  * Kolone: Zadatak (naslov), Status, Oblast, Prioritet, Rok.
- * Pored običnih zadataka, ovde živi i nedeljni zadatak "cveće za Sofiju",
- * koji bot sam kreira na početku svake nedelje.
+ * Pored običnih zadataka, ovde živi i nedeljni zadatak koji se sam kreira na
+ * početku svake nedelje (naslov se zadaje preko WEEKLY_TASK_TITLE).
  */
 
 export const OBLASTI = ['Zdravlje', 'Kuća', 'Finansije', 'Ljudi', 'Učenje', 'Ostalo'];
@@ -16,7 +16,7 @@ export const PRIORITETI = ['Visok', 'Srednji', 'Nizak'];
 export const STATUSI = ['Not started', 'In progress', 'Done'];
 
 /** Naslov nedeljnog zadatka — po njemu se prepoznaje da već postoji. */
-export const CVECE_ZADATAK = 'Kupiti Sofiji cveće';
+export const NEDELJNI_ZADATAK = config.nedeljniZadatak;
 
 let client = null;
 function getClient() {
@@ -96,18 +96,18 @@ export async function promeniStatus({ zadatakId, status }) {
   return redUObjekat(page);
 }
 
-// ------------------------------------------------- nedeljno cveće za Sofiju ---
+// ------------------------------------------------- nedeljni zadatak ---
 
 /**
- * Traži zadatak za cveće u nedelji koja sadrži dati datum.
+ * Traži nedeljni zadatak u nedelji koja sadrži dati datum.
  */
-export async function nadjiCvece(datum = danasISO()) {
+export async function nadjiNedeljni(datum = danasISO()) {
   const { start, end } = nedeljaOko(datum);
   const res = await getClient().databases.query({
     database_id: config.notion.todoDbId,
     filter: {
       and: [
-        { property: 'Zadatak', title: { contains: CVECE_ZADATAK } },
+        { property: 'Zadatak', title: { contains: NEDELJNI_ZADATAK } },
         { property: 'Rok', date: { on_or_after: start } },
         { property: 'Rok', date: { on_or_before: end } },
       ],
@@ -118,23 +118,23 @@ export async function nadjiCvece(datum = danasISO()) {
 }
 
 /**
- * Kreira nedeljni zadatak za cveće (rok = nedelja te sedmice). Idempotentno.
+ * Kreira nedeljni zadatak (rok = nedelja te sedmice). Idempotentno.
  */
-export async function kreirajCvece(datum = danasISO()) {
-  const postojeci = await nadjiCvece(datum);
+export async function kreirajNedeljni(datum = danasISO()) {
+  const postojeci = await nadjiNedeljni(datum);
   if (postojeci) {
-    logger.info('To-do: zadatak za cveće za ovu nedelju već postoji — preskačem.');
+    logger.info('To-do: nedeljni zadatak za ovu nedelju već postoji — preskačem.');
     return { ...postojeci, većPostojao: true };
   }
 
   const { end } = nedeljaOko(datum);
   const zadatak = await dodaj({
-    zadatak: CVECE_ZADATAK,
+    zadatak: NEDELJNI_ZADATAK,
     oblast: 'Ljudi',
     prioritet: 'Srednji',
     rok: end,
   });
 
-  logger.info(`To-do: kreiran nedeljni zadatak za cveće (rok ${end}).`);
+  logger.info(`To-do: kreiran nedeljni zadatak (rok ${end}).`);
   return { ...zadatak, većPostojao: false };
 }

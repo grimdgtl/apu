@@ -175,8 +175,8 @@ export function markGreeted(personId) {
 }
 
 /**
- * Označava čestitku po imenu — bot ovo zove kad kažeš "čestitao sam Nikoli".
- * Poredi bez razlike u veličini slova i po delu imena, pa je dovoljno "Nikola".
+ * Označava čestitku po imenu — bot ovo zove kad kažeš "čestitao sam Marku".
+ * Poredi bez razlike u veličini slova i po delu imena, pa je dovoljno "Marko".
  *
  * @returns {{matched: Array<{id, name}>, ambiguous: boolean, candidates: Array}}
  */

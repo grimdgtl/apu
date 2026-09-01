@@ -216,7 +216,7 @@ function selectProp(kolona, vrednost) {
   return { select: { name: vrednost } };
 }
 
-/** Domen se prima i bez sheme ("illusion.rs"), a upisuje se kao pun URL. */
+/** Domen se prima i bez sheme ("primer.rs"), a upisuje se kao pun URL. */
 function urlProp(vrednost) {
   const t = String(vrednost).trim();
   return { url: /^https?:\/\//i.test(t) ? t : `https://${t}` };
@@ -322,8 +322,8 @@ const PRAVNI_OBLICI = new Set([
  * Svodi naziv firme na prepoznatljivo jezgro: mala slova, bez dijakritika,
  * bez interpunkcije i bez pravnih oblika.
  *
- * "Marko Popov PR DGTL LAB" → "marko popov dgtl lab"
- * "DGTL Lab"                → "dgtl lab"
+ * "Petar Pavlović PR ABC STUDIO" → "petar pavlovic abc studio"
+ * "ABC Studio"                → "abc studio"
  */
 function normalizujNaziv(tekst) {
   return String(tekst ?? '')
@@ -341,8 +341,8 @@ function normalizujNaziv(tekst) {
 /**
  * Da li dva naziva označavaju istu firmu.
  *
- * Isti klijent se u praksi piše na više načina — "DGTL Lab" u bazi, a
- * "Marko Popov PR DGTL LAB" na fakturi. Zato je dovoljno da kraći naziv u
+ * Isti klijent se u praksi piše na više načina — "ABC Studio" u bazi, a
+ * "Petar Pavlović PR ABC STUDIO" na fakturi. Zato je dovoljno da kraći naziv u
  * celosti postoji u dužem. Traži se bar dve značajne reči da "Lab" ne bi
  * pogodio svaku firmu koja tu reč sadrži.
  */
@@ -379,7 +379,7 @@ function kandidatiZaNaziv(svi, naziv) {
     // 2. Isti posle normalizacije — razlika je samo pravni oblik ili pisanje.
     (k) =>
       normalizujNaziv(k.klijent) === normalizovan || normalizujNaziv(k.naziv) === normalizovan,
-    // 3. Jedan naziv u celosti sadrži drugi ("Marko Popov PR DGTL LAB" ⊃ "DGTL Lab").
+    // 3. Jedan naziv u celosti sadrži drugi ("Petar Pavlović PR ABC STUDIO" ⊃ "ABC Studio").
     (k) => istaFirma(k.klijent, naziv) || istaFirma(k.naziv, naziv),
   ];
 
@@ -393,8 +393,8 @@ function kandidatiZaNaziv(svi, naziv) {
 /**
  * Dodaje klijenta — ILI dopunjuje postojećeg ako ga prepozna.
  *
- * Poređenje ne sme da bude doslovno: korisnik jednom pošalje "DGTL Lab", a
- * drugi put pun pravni naziv "Marko Popov PR DGTL LAB". Doslovna provera je
+ * Poređenje ne sme da bude doslovno: korisnik jednom pošalje "ABC Studio", a
+ * drugi put pun pravni naziv "Petar Pavlović PR ABC STUDIO". Doslovna provera je
  * to propuštala i pravila drugi red za istu firmu, što posle razbija izradu
  * faktura (pretraga nađe dva pogotka pa odbije da nastavi).
  *
@@ -523,7 +523,7 @@ export async function findClient({ query }) {
   return delimicni;
 }
 
-/** Rastavlja "059-2026" na {redni: 59, godina: 2026}; null ako format ne valja. */
+/** Rastavlja "007-2026" na {redni: 7, godina: 2026}; null ako format ne valja. */
 function razloziBroj(tekst) {
   const m = /^(\d+)\s*-\s*(\d{4})$/.exec(String(tekst).trim());
   return m ? { redni: Number(m[1]), godina: Number(m[2]) } : null;

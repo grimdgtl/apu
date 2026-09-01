@@ -22,7 +22,11 @@ import { logger } from '../logger.js';
 
 const KORENI = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const FONTOVI = path.join(KORENI, '..', 'assets', 'fonts');
-const LOGO = path.join(KORENI, '..', 'assets', 'logo.png');
+// Logo je lični/brendirani fajl pa NIJE u repozitorijumu (vidi
+// assets/logo.example.png za očekivane proporcije). Putanju zadaj preko
+// INVOICE_LOGO_PATH — najzgodnije u DATA_DIR volumen, koji ionako preživljava
+// redeploy. Ako fajla nema, umesto slike se ispisuje naziv brenda iz .env.
+const LOGO = config.invoice.logoPath || path.join(KORENI, '..', 'assets', 'logo.png');
 
 // A4 sa marginama kao na obrascu.
 const MARGINA = 50;

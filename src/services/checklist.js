@@ -6,37 +6,21 @@ import { logger } from '../logger.js';
  * Dnevna checklista (Notion baza na Life stranici).
  *
  * Svaki red je jedan dan: naslov `Dan` (npr. "Sreda"), datum `Datum`, pa
- * 15 checkbox navika i formula `Skor`.
+ * checkbox navike i formula `Skor`.
  *
  * ⚠️ Stavke koje počinju sa "Bez " su OBRNUTE: čekirano znači da si USPEŠNO
- * izbegao tu stvar. "Nisam pio koka-kolu" → `Bez Coca-Cole` = true.
+ * izbegao tu stvar. "Nisam pio kolu" → `Bez kole` = true.
+ *
+ * Nazivi stavki dolaze iz .env (CHECKLIST_POZITIVNE / CHECKLIST_IZBEGAVANJA)
+ * jer MORAJU doslovno odgovarati kolonama u tvojoj Notion bazi.
  */
 
 // Kanonska imena kolona — model ne sme da izmišlja svoja.
-export const POZITIVNE = [
-  'Ustajanje 6:00',
-  'Teretana 7:00',
-  'Kreatin',
-  'Doručak',
-  'Vitamin D3 i K2',
-  'Tuširanje i C serum',
-  'Večera 19:00',
-  'Magnezijum',
-];
-
-export const IZBEGAVANJA = [
-  'Bez Coca-Cole',
-  'Bez gazirane vode',
-  'Bez alkohola',
-  'Bez pušenja',
-  'Bez slatkog',
-  'Bez igrica',
-  'Bez telefona posle 22:00',
-];
-
+export const POZITIVNE = config.checklist.pozitivne;
+export const IZBEGAVANJA = config.checklist.izbegavanja;
 export const SVE_STAVKE = [...POZITIVNE, ...IZBEGAVANJA];
 
-const GYM = 'Teretana 7:00';
+const GYM = config.checklist.ciljnaStavka;
 const DANI = ['Nedelja', 'Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota'];
 
 let client = null;
@@ -122,7 +106,7 @@ export async function kreirajRed(datum = danasISO()) {
 /**
  * Čekira/odčekira stavke za dati datum. Ako red ne postoji — napravi ga.
  * @param {object} opts
- * @param {Record<string, boolean>} opts.stavke npr. { "Kreatin": true, "Bez Coca-Cole": true }
+ * @param {Record<string, boolean>} opts.stavke npr. { "Doručak": true, "Bez slatkog": true }
  * @param {string} [opts.datum] YYYY-MM-DD (default: danas)
  */
 export async function oznaci({ stavke, datum = danasISO() }) {
@@ -195,7 +179,7 @@ export async function teretanaOveNedelje(datum = danasISO()) {
   });
 
   const bilo = res.results.length;
-  const cilj = 3;
+  const cilj = config.checklist.ciljNedeljno;
   return {
     odPonedeljka: start,
     doNedelje: end,

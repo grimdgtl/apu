@@ -43,6 +43,16 @@ function numeric(name, fallback) {
   return parsed;
 }
 
+/**
+ * Lista iz okruženja, razdvojena zarezima. Prazno = podrazumevana lista.
+ * Npr. CHECKLIST_POZITIVNE="Ustajanje 6:00, Vežbanje, Doručak"
+ */
+function lista(name, fallback) {
+  const raw = process.env[name];
+  if (!raw || !raw.trim()) return fallback;
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 export const config = {
   telegram: {
     token: required('TELEGRAM_BOT_TOKEN'),
@@ -81,25 +91,29 @@ export const config = {
   // da model ne može da izmeni ko je izdavalac ni na koji račun se uplaćuje.
   invoice: {
     issuer: {
-      name: optional('INVOICE_ISSUER_NAME', 'Nikola Milić PR Labart'),
-      brand: optional('INVOICE_ISSUER_BRAND', 'LABART'),
-      address: optional('INVOICE_ISSUER_ADDRESS', 'Ruže Šulman 17/1'),
-      city: optional('INVOICE_ISSUER_CITY', 'Zrenjanin'),
-      phone: optional('INVOICE_ISSUER_PHONE', '+381640313796'),
-      pib: optional('INVOICE_ISSUER_PIB', '113343290'),
-      mb: optional('INVOICE_ISSUER_MB', '66755657'),
-      bankAccount: optional('INVOICE_ISSUER_ACCOUNT', '265-1100310081259-33'),
-      bankName: optional('INVOICE_ISSUER_BANK', 'Raiffeisenbank Srbija'),
-      responsiblePerson: optional('INVOICE_RESPONSIBLE_PERSON', 'Nikola Milić'),
+      name: optional('INVOICE_ISSUER_NAME', 'Petar Petrović PR Studio Primer'),
+      brand: optional('INVOICE_ISSUER_BRAND', 'PRIMER'),
+      address: optional('INVOICE_ISSUER_ADDRESS', 'Nikole Tesle 1'),
+      city: optional('INVOICE_ISSUER_CITY', 'Beograd'),
+      phone: optional('INVOICE_ISSUER_PHONE', '+381600000000'),
+      pib: optional('INVOICE_ISSUER_PIB', '100000001'),
+      mb: optional('INVOICE_ISSUER_MB', '20000001'),
+      bankAccount: optional('INVOICE_ISSUER_ACCOUNT', '000-0000000000000-00'),
+      bankName: optional('INVOICE_ISSUER_BANK', 'Naziv banke'),
+      responsiblePerson: optional('INVOICE_RESPONSIBLE_PERSON', 'Petar Petrović'),
     },
     comment: optional('INVOICE_COMMENT', 'Račun je važeći bez pečata i potpisa.'),
     vatNote: optional('INVOICE_VAT_NOTE', 'Pravno lice nije u sistemu PDV-a.'),
     // Poslednja faktura izdata PRE ovog bota (format "NNN-GGGG"). Arhiva ne
     // sadrži starije fakture, pa bi numeracija inače krenula od 001.
     // Važi samo za svoju godinu — sledeća godina svejedno kreće od 001.
-    lastKnownNumber: optional('INVOICE_LAST_NUMBER', '059-2026'),
+    lastKnownNumber: optional('INVOICE_LAST_NUMBER'),
     // Folder na Drive-u u koji se snimaju PDF-ovi (prazno = koren Drive-a).
     driveFolderId: optional('GOOGLE_INVOICES_FOLDER_ID'),
+    // Putanja do loga koji ide na fakturu. Logo je lični/brendirani fajl pa
+    // NIJE u repozitorijumu — najzgodnije ga je staviti u DATA_DIR volumen
+    // (npr. /app/data/logo.png). Ako fajla nema, ispisuje se naziv brenda.
+    logoPath: optional('INVOICE_LOGO_PATH'),
   },
 
   google: {
@@ -142,13 +156,39 @@ export const config = {
 
   // Vremenska prognoza (Open-Meteo, bez ključa). Podrazumevano Beograd.
   weather: {
-    latitude: numeric('WEATHER_LAT', 45.2671),
-    longitude: numeric('WEATHER_LON', 19.8335),
-    locationName: optional('WEATHER_LOCATION', 'Novi Sad'),
+    latitude: numeric('WEATHER_LAT', 44.7866),
+    longitude: numeric('WEATHER_LON', 20.4489),
+    locationName: optional('WEATHER_LOCATION', 'Beograd'),
   },
 
   // Prag (%) iznad kojeg bot šalje čestitku u 23:00.
   checklistPraiseThreshold: numeric('CHECKLIST_PRAISE_THRESHOLD', 70),
+
+  // Dnevna checklista navika. Nazivi MORAJU doslovno odgovarati checkbox
+  // kolonama u Notion bazi — zato stoje u .env, a ne u kodu: svako ima svoje
+  // navike, a i ovako lične stavke ne završe u repozitorijumu.
+  checklist: {
+    pozitivne: lista('CHECKLIST_POZITIVNE', [
+      'Ustajanje 6:00',
+      'Vežbanje',
+      'Doručak',
+      'Vitamini',
+      'Večera 19:00',
+    ]),
+    // Stavke koje počinju sa "Bez " su OBRNUTE — čekirano znači da si uspeo
+    // da izbegneš tu stvar.
+    izbegavanja: lista('CHECKLIST_IZBEGAVANJA', [
+      'Bez slatkog',
+      'Bez alkohola',
+      'Bez telefona posle 22:00',
+    ]),
+    // Stavka koja se prati kao nedeljni cilj (npr. odlasci u teretanu).
+    ciljnaStavka: optional('CHECKLIST_CILJNA_STAVKA', 'Vežbanje'),
+    ciljNedeljno: numeric('CHECKLIST_CILJ_NEDELJNO', 3),
+  },
+
+  // Naslov zadatka koji se sam kreira svakog ponedeljka (rok: nedelja).
+  nedeljniZadatak: optional('WEEKLY_TASK_TITLE', 'Nedeljni zadatak'),
 
   // Monitoring sajtova — pragovi za "pao" (timeout) i "sporo".
   monitor: {
@@ -179,7 +219,7 @@ export const config = {
     checklistPraise: optional('CHECKLIST_PRAISE_CRON', '0 23 * * *'),
     // Nedeljna pohvala — nedeljom u 22:00.
     weeklySummary: optional('WEEKLY_SUMMARY_CRON', '0 22 * * 0'),
-    // Nedeljni zadatak "cveće za Sofiju" — ponedeljkom u 5:00.
+    // Nedeljni zadatak koji se sam obnavlja — ponedeljkom u 5:00.
     flowersTask: optional('FLOWERS_TASK_CRON', '0 5 * * 1'),
     // Osvežavanje indeksa za semantičku pretragu — svaki dan u 4:00 (pre pripreme dana).
     semanticIndex: optional('SEMANTIC_INDEX_CRON', '0 4 * * *'),

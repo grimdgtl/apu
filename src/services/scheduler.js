@@ -103,8 +103,8 @@ export function startScheduler() {
   }
 
   if (featureEnabled.todo) {
-    cron.schedule(config.cron.flowersTask, () => jobs.pokreni('nedeljni zadatak (cvece)', cveceZadatak), options);
-    logger.info(`Zakazan nedeljni zadatak (cveće): "${config.cron.flowersTask}" (${config.timezone})`);
+    cron.schedule(config.cron.flowersTask, () => jobs.pokreni('nedeljni zadatak', nedeljniZadatak), options);
+    logger.info(`Zakazan nedeljni zadatak: "${config.cron.flowersTask}" (${config.timezone})`);
   } else {
     logger.info('To-do lista preskočena (NOTION_TODO_DB_ID nije podešen).');
   }
@@ -179,13 +179,13 @@ async function noviDan() {
 }
 
 /**
- * Ponedeljkom u 5:00 — nedeljni zadatak "cveće za Sofiju" (rok: nedelja).
+ * Ponedeljkom u 5:00 — nedeljni zadatak koji se sam obnavlja (rok: nedelja).
  */
-async function cveceZadatak() {
+async function nedeljniZadatak() {
   try {
-    const z = await todo.kreirajCvece();
+    const z = await todo.kreirajNedeljni();
     if (z.većPostojao) {
-      logger.info('Cveće: zadatak za ovu nedelju je već postojao.');
+      logger.info('Nedeljni zadatak za ovu nedelju je već postojao.');
       return;
     }
     await sendMessage(
@@ -193,7 +193,7 @@ async function cveceZadatak() {
         'Podsetiću te dok ne bude gotov.',
     );
   } catch (err) {
-    logger.error('Greška pri kreiranju zadatka za cveće:', err.message);
+    logger.error('Greška pri kreiranju nedeljnog zadatka:', err.message);
     throw err;
   }
 }
@@ -289,20 +289,20 @@ async function checklistPodsetnik() {
       }
     }
 
-    // Nedeljni zadatak za cveće — javi ako još nije gotov.
-    let cveceLinija = '';
+    // Nedeljni zadatak — javi ako još nije gotov.
+    let nedeljnaLinija = '';
     if (featureEnabled.todo) {
       try {
-        const z = await todo.nadjiCvece();
+        const z = await todo.nadjiNedeljni();
         if (z && z.status !== 'Done') {
-          cveceLinija = `\n\n💐 Još nisi kupio cveće Sofiji (rok: ${z.rok}).`;
+          nedeljnaLinija = `\n\n💐 Nedeljni zadatak „${z.zadatak}" još nije gotov (rok: ${z.rok}).`;
         }
       } catch (err) {
-        logger.error('Ne mogu da proverim zadatak za cveće:', err.message);
+        logger.error('Ne mogu da proverim nedeljni zadatak:', err.message);
       }
     }
 
-    const dodaci = `${dnevnikLinija}${cveceLinija}`;
+    const dodaci = `${dnevnikLinija}${nedeljnaLinija}`;
 
     if (s.fali.length === 0) {
       await sendMessage(

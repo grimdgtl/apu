@@ -1,5 +1,9 @@
 import { config } from '../config.js';
 
+// Stavke checkliste dolaze iz .env (svako ima svoje navike), pa se i opis
+// alata gradi iz njih — inače bi model dobio spisak koji ne postoji u bazi.
+const SVE_STAVKE = [...config.checklist.pozitivne, ...config.checklist.izbegavanja];
+
 /**
  * Definicije alata (Anthropic "tools" format) koje Claude može da pozove.
  *
@@ -12,14 +16,14 @@ import { config } from '../config.js';
 const KLIJENT_POLJA = {
   nazivZaFakturu: {
     type: 'string',
-    description: 'Pun pravni naziv za fakturu, npr. "Illusions World doo".',
+    description: 'Pun pravni naziv za fakturu, npr. "Primer Kompanija doo".',
   },
-  domen: { type: 'string', description: 'Sajt klijenta (npr. "illusion.rs").' },
+  domen: { type: 'string', description: 'Sajt klijenta (npr. "primer.rs").' },
   email: { type: 'string', description: 'Kontakt email.' },
   telefon: { type: 'string', description: 'Kontakt telefon.' },
   pib: { type: 'string', description: 'PIB (poreski identifikacioni broj).' },
   mb: { type: 'string', description: 'Matični broj.' },
-  adresa: { type: 'string', description: 'Ulica i broj, npr. "Kneza Mihaila 33".' },
+  adresa: { type: 'string', description: 'Ulica i broj, npr. "Glavna 1".' },
   grad: { type: 'string', description: 'Poštanski broj i grad, npr. "11000 Beograd".' },
   opis: { type: 'string', description: 'Kratka napomena o klijentu ili poslu.' },
   aktivan: {
@@ -53,8 +57,8 @@ const definitions = [
     description:
       'Upisuje podatke o klijentu u Notion KLIJENTI bazu. Alat SAM proverava da li firma već ' +
       'postoji: ako postoji, dopunjuje POSTOJEĆI red i ne pravi novi; ako ne postoji, otvara ' +
-      'nov. Prepoznaje firmu i kad je naziv drugačije napisan ("Marko Popov PR DGTL LAB" je ' +
-      'isto što i "DGTL Lab"), pa ga slobodno pozovi sa nazivom kako ga je korisnik naveo. ' +
+      'nov. Prepoznaje firmu i kad je naziv drugačije napisan ("Petar Pavlović PR ABC STUDIO" je ' +
+      'isto što i "ABC Studio"), pa ga slobodno pozovi sa nazivom kako ga je korisnik naveo. ' +
       'Koristi kad korisnik pošalje podatke firme ("dodaj mi ove podatke u bazu klijenata"). ' +
       'Upiši samo ono što je korisnik naveo — ne izmišljaj PIB, adresu ni cenu. U odgovoru ' +
       'alata polje "dopunjen" kaže da li je red već postojao; javi korisniku šta se desilo.',
@@ -63,7 +67,7 @@ const definitions = [
       properties: {
         naziv: {
           type: 'string',
-          description: 'Naziv klijenta kako se vodi u bazi (naslov reda), npr. "Illusions World".',
+          description: 'Naziv klijenta kako se vodi u bazi (naslov reda), npr. "Primer Kompanija".',
         },
         ...KLIJENT_POLJA,
       },
@@ -250,7 +254,7 @@ const definitions = [
       properties: {
         tekst: {
           type: 'string',
-          description: 'Činjenica u jednoj rečenici, npr. "Sofija je korisnikova devojka".',
+          description: 'Činjenica u jednoj rečenici, npr. "Ana je korisnikova sestra".',
         },
         kategorija: {
           type: 'string',
@@ -397,13 +401,11 @@ const definitions = [
       'Označava (ili skida oznaku) stavke u dnevnoj checklisti. Ako red za taj dan ne postoji, ' +
       'automatski ga kreira.\n' +
       'Dozvoljena imena stavki su TAČNO ova:\n' +
-      'Ustajanje 6:00, Teretana 7:00, Kreatin, Doručak, Vitamin D3 i K2, Tuširanje i C serum, ' +
-      'Večera 19:00, Magnezijum, Bez Coca-Cole, Bez gazirane vode, Bez alkohola, Bez pušenja, ' +
-      'Bez slatkog, Bez igrica, Bez telefona posle 22:00.\n' +
-      'VAŽNO — stavke koje počinju sa "Bez " su OBRNUTE: true znači da je uspešno IZBEGAO tu ' +
-      'stvar. Primeri: "popio sam kreatin" → {"Kreatin": true}; "nisam pio koka-kolu" → ' +
-      '{"Bez Coca-Cole": true}; "pušio sam danas" → {"Bez pušenja": false}; "bio sam u teretani" ' +
-      '→ {"Teretana 7:00": true}; "jeo sam slatko" → {"Bez slatkog": false}.',
+      `${SVE_STAVKE.join(', ')}.\n` +
+      'VAŽNO — stavke koje počinju sa "Bez " su OBRNUTE: true znači da je korisnik uspešno ' +
+      'IZBEGAO tu stvar. Npr. ako postoji stavka "Bez slatkog": "jeo sam slatko" → ' +
+      '{"Bez slatkog": false}, a "nisam jeo slatko" → {"Bez slatkog": true}. Za obične stavke ' +
+      'je obrnuto očigledno: ako je korisnik nešto uradio, postavi true.',
     input_schema: {
       type: 'object',
       properties: {
@@ -513,7 +515,7 @@ const definitions = [
     feature: 'todo',
     name: 'todo_set_status',
     description:
-      'Menja status ličnog zadatka — npr. kad korisnik kaže "kupio sam cveće" postavi na "Done". ' +
+      'Menja status ličnog zadatka — npr. kad korisnik kaže da je nešto završio postavi na "Done". ' +
       'Prvo pozovi todo_list da nađeš ID zadatka.',
     input_schema: {
       type: 'object',
@@ -833,8 +835,8 @@ const definitions = [
     name: 'birthday_mark_greeted',
     description:
       'Beleži da je korisnik ČESTITAO rođendan nekome, čime se gasi večernji podsetnik u ' +
-      '19:00 za tu osobu. Koristi kad korisnik kaže "čestitao sam Nikoli", "javio sam se ' +
-      'Mrđi", "poslao sam poruku za rođendan". Ako danas slavi samo jedna osoba, dovoljno je ' +
+      '19:00 za tu osobu. Koristi kad korisnik kaže "čestitao sam Marku", "javio sam se ' +
+      'Jovani", "poslao sam poruku za rođendan". Ako danas slavi samo jedna osoba, dovoljno je ' +
       'i "čestitao sam" bez imena. Ako alat vrati ambiguous=true, pitaj korisnika na koga ' +
       'tačno misli i pozovi ponovo sa punijim imenom.',
     input_schema: {
@@ -843,7 +845,7 @@ const definitions = [
         name: {
           type: 'string',
           description:
-            'Ime osobe kojoj je čestitano (dovoljno i samo ime, npr. "Nikola"). Ako korisnik ' +
+            'Ime osobe kojoj je čestitano (dovoljno i samo ime, npr. "Marko"). Ako korisnik ' +
             'nije rekao ime a danas slavi samo jedna osoba, prosledi prazan string.',
         },
       },
