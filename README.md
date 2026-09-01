@@ -23,8 +23,7 @@ Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →
 
 - [Features](#features)
 - [Project structure](#project-structure)
-- [Installation](#installation)
-- [Integration setup](#integration-setup)
+- [Running your own copy](#running-your-own-copy) — start here if someone shared this with you
 - [Environment variables](#environment-variables)
 - [Running](#running)
 - [Deployment (Coolify)](#deployment-coolify)
@@ -93,9 +92,11 @@ added by hand. Invoices issued before the bot existed are not in the archive, so
 January rolls over to `001-<new year>` with no configuration change. The year comes from the
 invoice's issue date, not the clock, so a backdated invoice stays in the right series.
 
-The layout is drawn with `pdfkit` (~1 MB, no headless browser). Fonts and logo live in
-`assets/` — replace `assets/logo.png` and the `assets/fonts/Montserrat-*.ttf` files to
-rebrand. Without a logo file the issuer's brand name is typeset instead.
+The layout is drawn with `pdfkit` (~1 MB, no headless browser). Everything identifying comes
+from `.env`: the issuer block from `INVOICE_ISSUER_*` and the logo from `INVOICE_LOGO_PATH`,
+which points outside the repository (the data volume is the natural spot) so a personal logo
+never lands in version control. Without a logo file the issuer's brand name is typeset
+instead. Swap `assets/fonts/Montserrat-*.ttf` for a different typeface — static cuts only.
 
 ### Recurring events
 
@@ -131,7 +132,7 @@ apu/
 ├── docker-entrypoint.sh    # fixes volume ownership, then drops to the node user
 ├── .env.example            # every environment variable
 ├── assets/
-│   ├── logo.png            # logo printed on invoices
+│   ├── logo.example.png    # placeholder; your own logo goes outside the repo (INVOICE_LOGO_PATH)
 │   └── fonts/              # Montserrat (static cuts — pdfkit cannot embed variable fonts)
 ├── scripts/
 │   └── google-auth.js      # one-off Google refresh-token helper
@@ -170,90 +171,287 @@ apu/
 
 ---
 
-## Installation
+## Running your own copy
 
-Requires **Node.js ≥ 20** (22+ recommended).
+This is a personal assistant, not a shared service. To use it you take the code onto **your
+own** GitHub account and connect **your own** Telegram bot, Notion workspace and Google
+account. Nothing you do touches the original owner's setup: the code holds no personal data,
+and every account, key and database ID lives in your own `.env`, which is never committed.
+
+### 1. Get the code onto your account
+
+**Fork** the repository on GitHub (button top-right). That gives you
+`github.com/<you>/apu`, which you own and can push to. You cannot push to the original —
+that stays read-only for you.
+
+If you would rather not have a visible fork, make an independent copy instead:
 
 ```bash
-git clone https://github.com/<korisnik>/apu.git
+git clone https://github.com/<original-owner>/apu.git
 cd apu
+rm -rf .git                 # drop the original history entirely
+git init && git add -A
+git commit -m "Initial commit"
+git remote add origin https://github.com/<you>/apu.git
+git push -u origin main
+```
+
+Then set it up locally:
+
+```bash
 npm install
 cp .env.example .env
 ```
 
-Fill in `.env` (see below), then run `npm start`.
+Fill in `.env` as you work through the steps below. Every integration is **optional and
+independent** — the bot starts with whatever you configured and switches off the rest, so you
+can begin with just Telegram + Anthropic and add the rest later. `/status` in Telegram always
+shows what is on and what is missing.
 
----
+### 2. Telegram and Anthropic (the minimum)
 
-## Integration setup
+1. Message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token into
+   `TELEGRAM_BOT_TOKEN`.
+2. Message [@userinfobot](https://t.me/userinfobot) → copy your numeric ID into
+   `TELEGRAM_OWNER_CHAT_ID`. **The bot answers only this ID** — anyone else is ignored.
+3. Create an API key at [console.anthropic.com](https://console.anthropic.com) →
+   `ANTHROPIC_API_KEY`. `ANTHROPIC_MODEL` defaults to `claude-sonnet-5`; set
+   `claude-opus-4-8` if you want maximum capability at higher cost.
 
-### 1. Telegram
-1. [@BotFather](https://t.me/BotFather) → `/newbot` → gives you **`TELEGRAM_BOT_TOKEN`**.
-2. [@userinfobot](https://t.me/userinfobot) → your chat ID → **`TELEGRAM_OWNER_CHAT_ID`**.
+`npm start` now gives you a working assistant with no tools yet.
 
-> The bot replies **only to its owner** — messages from anyone else are ignored.
+### 3. Notion databases
 
-### 2. Anthropic (Claude)
-Get a key at <https://console.anthropic.com> → **`ANTHROPIC_API_KEY`**.
-Pick the model with `ANTHROPIC_MODEL` (defaults to `claude-sonnet-5`; use
-`claude-opus-4-8` for maximum capability).
+This is the longest step, because the bot reads and writes **your** databases and matches
+columns **by name**. Create the ones you want, then copy each database ID out of its URL:
 
-### 3. Notion
-1. Create an **internal integration**: <https://www.notion.so/my-integrations> →
-   **`NOTION_API_KEY`**.
-   - The integration must live in the **same workspace** as your pages.
-   - Capabilities: **Read**, **Update**, **Insert** content.
-2. Grant it access: *integration → **Content access** → add the parent page*
-   (access is inherited by everything below it).
-3. Copy the 32-character IDs from the database URLs:
+```
+https://www.notion.so/workspace/2302b72c68b980dabbe8dccb945e23e6?v=...
+                                └──────────── database ID ────────────┘
+```
 
-| Variable | Database / page | Expected columns |
+Create an **internal integration** at
+[notion.so/my-integrations](https://www.notion.so/my-integrations) — in the **same workspace**
+as your pages, with **Read**, **Update** and **Insert** capabilities — and put the token in
+`NOTION_API_KEY`.
+
+Then give it access. The quickest way is to add the **parent page** once under *integration →
+Content access*: everything nested below inherits it. Otherwise share each database
+individually (`•••` → Connections → your integration). A database that is not shared returns
+"Could not find database with ID" even when the ID is correct.
+
+Column names must match **exactly**, including Serbian diacritics and capitalisation. Types
+matter too — Notion's `Status` and `Select` are different property types.
+
+<details>
+<summary><b>TASK BOARD</b> — work tasks (<code>NOTION_TASKS_DB_ID</code>)</summary>
+
+| Column | Type | Values |
 |---|---|---|
-| `NOTION_TASKS_DB_ID` | Work task board | `Name`, `Status`, `Assign` |
-| `NOTION_KB_PAGE_ID` | Knowledge Base page | — (notes are added as sub-pages) |
-| `NOTION_CLIENTS_DB_ID` | Clients database | `Klijent` (title), `Domen` (URL), `Aktivan` (select) |
-| `NOTION_CHECKLIST_DB_ID` | Daily habit checklist | `Dan` (title), `Datum` (date), 15 checkboxes |
-| `NOTION_DNEVNIK_DB_ID` | Journal | `Dan`, `Datum`, `Raspoloženje`, `Energija`, `Ključna reč` |
-| `NOTION_TODO_DB_ID` | Personal to-do list | `Zadatak`, `Status`, `Oblast`, `Prioritet`, `Rok` |
+| `Name` | Title | |
+| `Status` | **Status** | `Not started`, `In progress`, `Done` |
+</details>
 
-> **Checklist semantics.** Items starting with `Bez ` ("without") are **inverted**:
-> ticking them means you successfully avoided that thing. "I didn't drink Coke" sets
-> `Bez Coca-Cole` to true. The tool description teaches the model this explicitly.
+<details>
+<summary><b>KLIJENTI</b> — clients, website monitoring, invoice data (<code>NOTION_CLIENTS_DB_ID</code>)</summary>
 
-### 4. Google (Calendar + Drive)
-1. [Google Cloud Console](https://console.cloud.google.com) → OAuth 2.0 **Desktop**
-   credentials → **`GOOGLE_CLIENT_ID`**, **`GOOGLE_CLIENT_SECRET`**.
-2. Enable **both** APIs: *Google Calendar API* and *Google Drive API*.
-3. **OAuth consent screen → Publish app (Production)** — in "Testing" mode the refresh
-   token expires after 7 days.
-4. Run once:
-   ```bash
-   npm run auth:google
-   ```
-   Open the printed URL, approve access (it requests Calendar + Drive), then paste the
-   printed **`GOOGLE_REFRESH_TOKEN`** into `.env`.
+| Column | Type | Values |
+|---|---|---|
+| `Klijent` | Title | |
+| `Naziv za fakturu` | Text | full legal name for invoices |
+| `Domen` | URL | used by the uptime monitor |
+| `Email` | Email | |
+| `Telefon` | Phone | |
+| `PIB` | Text | |
+| `MB` | Text | |
+| `Adresa` | Text | |
+| `Grad` | Text | |
+| `Opis` | Text | |
+| `Aktivan` | Select | `Aktivan`, `Arhiva`, `U izradi` |
+| `Tip` | Select | `Klijent`, `Interni`, `Veliki ugovor` |
+| `Status` | Select | `Plaćeno`, `Nije plaćeno`, `Ne plaća` |
+| `Faktura` | Select | `Poslato`, `Nije poslato`, `Ne plaća` |
+| `Ponuda` | Select | `Poslato`, `Nije poslato` |
+| `Trajanje` | Select | `Mesečno`, `12 meseci`, `6 meseci`, `Nema održavanja` |
+| `Održavanje cena` | Number | |
+| `Održavanje datum` | Date | |
+| `Datum puštanja` | Date | |
+| `Elementor` | Select | `Da`, `Ne` |
+| `Moj hosting` | Select | `Da`, `Ne` |
 
-### 5. Email
-- **Reading (IMAP):** `IMAP_HOST/PORT/USER/PASSWORD` — on cPanel this is usually
-  `mail.yourdomain.com:993`, with the full address as the username.
-- **Sending:** two options —
-  - **Resend (recommended):** create an account at [resend.com](https://resend.com),
-    verify your domain (DNS records), then set **`RESEND_API_KEY`**. It goes over HTTPS,
-    so it works even when SMTP ports are blocked.
-  - **SMTP:** `SMTP_HOST/PORT/SECURE/USER/PASSWORD`. Used **only when `RESEND_API_KEY`
-    is not set**.
+Only rows with `Aktivan = Aktivan` **and** a filled `Domen` are checked by the monitor.
+</details>
 
-> Many hosting providers (Hetzner among them) block outbound SMTP ports — see
-> [Troubleshooting](#troubleshooting).
+<details>
+<summary><b>FAKTURE</b> — invoice archive (<code>NOTION_INVOICES_DB_ID</code>)</summary>
 
-### 6. Voice messages
-Set **one** key:
-- **`OPENAI_API_KEY`** → `whisper-1`
-- **`GROQ_API_KEY`** → `whisper-large-v3` (has a free tier)
+| Column | Type | Values |
+|---|---|---|
+| `Broj` | Title | `NNN-YYYY`, e.g. `007-2026` |
+| `Klijent` | Relation | → KLIJENTI |
+| `Datum izdavanja` | Date | |
+| `Datum prometa` | Date | |
+| `Iznos` | Number | |
+| `Stavke` | Text | |
+| `Status` | Select | `Nije plaćeno`, `Plaćeno`, `Stornirano` |
+| `PDF` | URL | link to the file on Drive |
+| `Mesto` | Text | |
 
-### 7. Weather
-No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER_LAT`,
-`WEATHER_LON`.
+The next invoice number is derived from this table, so it stays correct even if you add a row
+by hand. If you already issue invoices outside the bot, set `INVOICE_LAST_NUMBER` (e.g.
+`059-2026`) so numbering continues instead of restarting at `001`.
+</details>
+
+<details>
+<summary><b>Rođendani</b> — birthdays (<code>NOTION_BIRTHDAYS_DB_ID</code>)</summary>
+
+| Column | Type | Values |
+|---|---|---|
+| `Ime i prezime` | Title | |
+| `Rođendan` | Date | put the real birth year — it is used for the age |
+| `Odnos` | Select | `Porodica`, `Blizak prijatelj`, `Prijatelj`, `Kolega`, `Poznanik` |
+| `Telefon` | Phone | |
+| `Ideja za poklon` | Text | |
+| `Napomena` | Text | |
+
+Only day and month are matched, so entries repeat every year with no maintenance.
+</details>
+
+<details>
+<summary><b>Dnevna checklista</b> — daily habits (<code>NOTION_CHECKLIST_DB_ID</code>)</summary>
+
+| Column | Type | Values |
+|---|---|---|
+| `Dan` | Title | filled automatically (`Ponedeljak`, …) |
+| `Datum` | Date | |
+| one **Checkbox** per habit | Checkbox | names must match your `.env` exactly |
+
+The habits themselves are **yours** — set them in `.env`:
+
+```
+CHECKLIST_POZITIVNE=Ustajanje 6:00, Vežbanje, Doručak, Vitamini, Večera 19:00
+CHECKLIST_IZBEGAVANJA=Bez slatkog, Bez alkohola, Bez telefona posle 22:00
+CHECKLIST_CILJNA_STAVKA=Vežbanje
+CHECKLIST_CILJ_NEDELJNO=3
+```
+
+Create one checkbox column per entry, named identically. Items starting with `Bez ` are
+**inverted**: ticked means you successfully avoided the thing. `CHECKLIST_CILJNA_STAVKA` is
+the habit tracked as a weekly goal.
+
+> If a name in `.env` does not match a column, the bot does **not** error — it reads a column
+> that isn't there and quietly reports everything as undone. Check the spelling twice.
+</details>
+
+<details>
+<summary><b>Dnevnik</b> — journal (<code>NOTION_DNEVNIK_DB_ID</code>)</summary>
+
+| Column | Type | Values |
+|---|---|---|
+| `Dan` | Title | filled automatically |
+| `Datum` | Date | |
+| `Raspoloženje` | Select | `Odlično`, `Dobro`, `Neutralno`, `Loše`, `Teško` |
+| `Energija` | Select | `Visoka`, `Srednja`, `Niska` |
+| `Ključna reč` | Text | |
+| `Checklista` | Relation | → Dnevna checklista (optional but recommended) |
+</details>
+
+<details>
+<summary><b>To-do lista</b> — personal tasks (<code>NOTION_TODO_DB_ID</code>)</summary>
+
+| Column | Type | Values |
+|---|---|---|
+| `Zadatak` | Title | |
+| `Status` | **Status** | `Not started`, `In progress`, `Done` |
+| `Oblast` | Select | `Zdravlje`, `Kuća`, `Finansije`, `Ljudi`, `Učenje`, `Ostalo` |
+| `Prioritet` | Select | `Visok`, `Srednji`, `Nizak` |
+| `Rok` | Date | |
+
+`WEEKLY_TASK_TITLE` names a task the bot recreates every Monday (due Sunday). Leave it at the
+default if you don't want anything personal there.
+</details>
+
+A **Knowledge Base** page (any ordinary page, not a database) goes in `NOTION_KB_PAGE_ID`;
+notes are added as sub-pages.
+
+### 4. Google Calendar and Drive
+
+1. In [Google Cloud Console](https://console.cloud.google.com): new project → enable **both**
+   **Google Calendar API** and **Google Drive API**.
+2. **APIs & Services → Credentials → Create OAuth client ID → Desktop app**. Copy the values
+   into `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+3. **OAuth consent screen → Publish app (Production).** Left in "Testing", the refresh token
+   expires after 7 days and the bot silently loses Calendar and Drive a week later.
+4. Run the helper and follow the link it prints:
+
+```bash
+npm run auth:google
+```
+
+Paste the resulting refresh token into `GOOGLE_REFRESH_TOKEN`. Both Calendar and Drive use
+this one token, so if you add Drive later you must run the helper **again** to get a token
+with the wider scope, otherwise Drive calls fail with `insufficient scope`.
+
+For invoices, create a Drive folder and copy its ID from the URL into
+`GOOGLE_INVOICES_FOLDER_ID` (leave empty to save into the Drive root).
+
+### 5. Everything else (all optional)
+
+| What | Variables | Notes |
+|---|---|---|
+| Reading mail | `IMAP_HOST/PORT/USER/PASSWORD` | Gmail needs an [App Password](https://myaccount.google.com/apppasswords), not your login password. On cPanel it is usually `mail.yourdomain.com:993` with the full address as username |
+| Sending mail | `RESEND_API_KEY` **or** `SMTP_*` | Resend is recommended — it goes over HTTPS, so it works even where outbound SMTP is blocked (Hetzner and others block it). Verify your domain's DNS records first. SMTP is used only when `RESEND_API_KEY` is empty |
+| Voice messages | `OPENAI_API_KEY` or `GROQ_API_KEY` | Groq has a free tier |
+| Semantic search | `OPENAI_API_KEY` | Same key; used for embeddings |
+| Weather | `WEATHER_LAT/LON/LOCATION` | No key needed (Open-Meteo). Defaults to Belgrade |
+| Timezone | `TIMEZONE` | Drives every cron schedule |
+
+### 6. Make the invoices yours
+
+The invoice layout is generic; the identity on it comes entirely from `.env`:
+
+```
+INVOICE_ISSUER_NAME=Your Company
+INVOICE_ISSUER_BRAND=YOURBRAND
+INVOICE_ISSUER_ADDRESS=Your street 1
+INVOICE_ISSUER_CITY=Your city
+INVOICE_ISSUER_PHONE=+3816...
+INVOICE_ISSUER_PIB=...
+INVOICE_ISSUER_MB=...
+INVOICE_ISSUER_ACCOUNT=...
+INVOICE_ISSUER_BANK=Your bank
+INVOICE_RESPONSIBLE_PERSON=Your name
+```
+
+**Logo.** Deliberately not in the repository — see `assets/logo.example.png` for the expected
+proportions (roughly 4:1, transparent PNG). Put your own file somewhere persistent and point
+`INVOICE_LOGO_PATH` at it; in Docker the data volume is the natural place
+(`/app/data/logo.png`). Without a logo file the invoice prints `INVOICE_ISSUER_BRAND` as text,
+which looks fine on its own.
+
+The **fonts** (Montserrat, in `assets/fonts/`) ship with the repo under the SIL Open Font
+License, so nothing to do there. Swap the four `.ttf` files if you want a different typeface —
+static cuts only, pdfkit cannot embed variable fonts.
+
+### 7. Run it
+
+```bash
+npm start
+```
+
+The startup log lists every integration as on or off, and warns about the ones that are off.
+Send `/status` in Telegram for the same picture with the missing variable named for each.
+
+For a server, follow [Deployment](#deployment-coolify) below — the short version is Coolify,
+**Build Pack: Dockerfile**, no ports, health check disabled, and a volume mounted at
+`/app/data` so the bot doesn't forget everything on each redeploy.
+
+### What you do not inherit
+
+Forking gives you the code only. Conversation history, remembered facts, the search index,
+invoice archive and monitoring history all live in `DATA_DIR` and in your own Notion — none of
+it travels with the repository. Your `.env` is git-ignored, so pushing your fork never
+publishes your keys; the same goes for `data/` and `assets/logo.png`.
 
 ---
 
@@ -265,6 +463,7 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 | `TELEGRAM_OWNER_CHAT_ID` | Yes | — | Your chat ID (whitelist) |
 | `ANTHROPIC_API_KEY` | Yes | — | Anthropic API key |
 | `ANTHROPIC_MODEL` | | `claude-sonnet-5` | Model |
+| `ANTHROPIC_MAX_TOKENS` | | `8192` | Response cap; lower values can truncate long tool sequences |
 | `NOTION_API_KEY` | | — | Internal Notion integration token |
 | `NOTION_TASKS_DB_ID` | | — | Work task board |
 | `NOTION_KB_PAGE_ID` | | — | Knowledge Base page |
@@ -277,6 +476,10 @@ No key required (Open-Meteo). Set the location with `WEATHER_LOCATION`, `WEATHER
 | `GOOGLE_INVOICES_FOLDER_ID` | | — | Drive folder invoice PDFs are saved into (empty = Drive root) |
 | `INVOICE_ISSUER_*` | | see `.env.example` | Issuer details printed on every invoice |
 | `INVOICE_LAST_NUMBER` | | — | Last invoice issued before the bot (e.g. `007-2026`); numbering continues from it |
+| `INVOICE_COMMENT` | | see `.env.example` | Footer note on the invoice |
+| `INVOICE_VAT_NOTE` | | see `.env.example` | VAT-exemption note on the invoice |
+| `BIRTHDAY_MORNING_CRON` | | `0 11 * * *` | Who has a birthday today |
+| `BIRTHDAY_EVENING_CRON` | | `0 19 * * *` | Reminder for birthdays not yet greeted |
 | `GOOGLE_CLIENT_ID` | | — | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | | — | OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | | `http://localhost:3000/oauth2callback` | Used by the auth script only |
