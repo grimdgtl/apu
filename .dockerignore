@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+*.log
+.DS_Store
+.google-token.json
+scratchpad
+README.md
+
+# Lokalni podaci se montiraju kao volume, ne pakuju se u image.
+data
