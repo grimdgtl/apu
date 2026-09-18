@@ -247,6 +247,19 @@ async function respondTo(ctx, chatId, userContent) {
   }
 }
 
+// /provera — uporedi Notion kolone sa podešavanjima, na zahtev.
+bot.command('provera', async (ctx) => {
+  if (!isOwner(ctx.chat.id)) return;
+  ctx.sendChatAction('typing').catch(() => {});
+  try {
+    const { proveriSeme, formatirajProveru } = await import('./schema.js');
+    await replyChunked(ctx, formatirajProveru(await proveriSeme()));
+  } catch (err) {
+    logger.error('Provera šema nije uspela:', err.message);
+    await ctx.reply(`Nisam uspeo da proverim šeme: ${err.message}`);
+  }
+});
+
 bot.command('poslovi', async (ctx) => {
   if (!isOwner(ctx.chat.id)) return;
   const sati = Number(ctx.message.text.split(' ')[1]) || 24;

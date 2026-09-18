@@ -592,6 +592,15 @@ the switch.
 | `/status` | Shows which integrations are enabled |
 | `/reset` | Clears conversation history |
 | `/poslovi [hours]` | Scheduled-job report: what ran, what failed |
+| `/provera` | Compares the Notion databases against what the code expects |
+
+The bot maps Notion columns **by name**, so renaming or deleting one breaks things
+quietly: a missing checkbox simply reads as `false`, and the habit looks unchecked
+forever. `/provera` compares every configured database against what the code expects
+and reports missing columns, wrong column types, and — for the daily checklist —
+checkbox columns that exist in Notion but are not listed in `CHECKLIST_POZITIVNE` /
+`CHECKLIST_IZBEGAVANJA`. The same check runs at startup and messages you only when
+the finding **changes**, so a restart loop will not spam you.
 
 Everything else is plain language (the bot is used in Serbian):
 

@@ -1,5 +1,6 @@
-import { bot } from './services/telegram.js';
+import { bot, sendMessage } from './services/telegram.js';
 import { startScheduler } from './services/scheduler.js';
+import { proveriPriPokretanju } from './services/schema.js';
 import { featureEnabled, config } from './config.js';
 import { logger } from './logger.js';
 
@@ -48,6 +49,11 @@ async function main() {
   }
 
   startScheduler();
+
+  // Provera da Notion kolone i dalje odgovaraju podešavanjima. Namerno bez
+  // await-a i sa sopstvenim catch-om: ovo je pomoćna provera i ne sme ni da
+  // uspori ni da obori pokretanje bota.
+  proveriPriPokretanju((tekst) => sendMessage(tekst)).catch(() => {});
 
   // bot.launch() se u Telegraf-u v4 razrešava tek kad se bot ZAUSTAVI,
   // pa ga NE await-ujemo (inače se sledeći red nikad ne izvrši). Greške
