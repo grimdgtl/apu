@@ -4,6 +4,7 @@ import { logger, skrati } from '../logger.js';
 import { runAgent } from './claude.js';
 import { loadHistories, saveHistories } from '../store.js';
 import { transcribe } from './transcribe.js';
+import { uLatinicu, imaCirilice } from './pismo.js';
 import * as jobs from './jobs.js';
 import * as outbox from './outbox.js';
 import * as invoices from './invoices.js';
@@ -557,8 +558,18 @@ function podeli(text, limit = 4000) {
   return delovi.length ? delovi : [text];
 }
 
+// Poslednja linija odbrane za pismo: uputstvo u system promptu model ume da
+// zaboravi na dugom kontekstu, pa se ćirilica ovde preslovljava bezuslovno —
+// kroz ovo prolazi SVE što bot pošalje, i odgovori i proaktivne poruke.
+function zaSlanje(text) {
+  if (imaCirilice(text)) {
+    logger.warn('Model je odgovorio ćirilicom — preslovljeno u latinicu pre slanja.');
+  }
+  return uLatinicu(text);
+}
+
 async function replyChunked(ctx, text) {
-  for (const deo of podeli(text)) {
+  for (const deo of podeli(zaSlanje(text))) {
     await ctx.reply(deo);
   }
 }
@@ -567,7 +578,7 @@ async function replyChunked(ctx, text) {
  * Proaktivno slanje poruke vlasniku (koristi scheduler).
  */
 export async function sendMessage(text, chatId = config.telegram.ownerChatId) {
-  for (const deo of podeli(text)) {
+  for (const deo of podeli(zaSlanje(text))) {
     await bot.telegram.sendMessage(chatId, deo);
   }
   logger.info('Proaktivna poruka poslata vlasniku.');

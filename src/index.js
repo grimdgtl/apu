@@ -24,6 +24,7 @@ async function main() {
     drive: 'drive',
     mail: 'mail',
     voice: 'glasovne',
+    motivacija: 'motivacijaOpenAI',
     siteMonitor: 'monitoringSajtova',
     birthdays: 'rodjendani',
     checklist: 'checklista',

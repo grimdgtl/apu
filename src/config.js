@@ -152,6 +152,18 @@ export const config = {
     groqKey: optional('GROQ_API_KEY'),
   },
 
+  // Jutarnja motivaciona poruka. Namerno je piše OpenAI, a ne isti model kao
+  // ostatak bota — drugi "glas" i, uz pamćenje prethodnih poruka, manja šansa
+  // da se jutra počnu ponavljati. Bez ključa poruku piše Claude.
+  motivacija: {
+    openaiKey: optional('OPENAI_API_KEY'),
+    // gpt-4o-mini podržava temperature/penalty parametre koje kod šalje; ako
+    // pređeš na reasoning model (o-serija), proveri da ih ne odbija.
+    model: optional('MOTIVATION_MODEL', 'gpt-4o-mini'),
+    // Koliko prethodnih poruka ide u prompt kao "ovo ne ponavljaj".
+    pamti: numeric('MOTIVATION_HISTORY', 30),
+  },
+
   timezone: optional('TIMEZONE', 'Europe/Belgrade'),
 
   // Vremenska prognoza (Open-Meteo, bez ključa). Podrazumevano Beograd.
@@ -244,6 +256,9 @@ export const featureEnabled = {
   ),
   mail: Boolean(config.mail.imap.user && config.mail.imap.password),
   voice: Boolean(config.transcription.openaiKey || config.transcription.groqKey),
+  // Jutarnju motivaciju piše OpenAI; bez ključa se pada na Claude, pa ovo NE
+  // gasi jutarnji pozdrav — samo bira ko ga piše.
+  motivacija: Boolean(config.motivacija.openaiKey),
   // Monitoring sajtova traži Notion ključ i ID KLIJENTI baze.
   siteMonitor: Boolean(config.notion.apiKey && config.notion.clientsDbId),
   // Upravljanje bazom klijenata (dodavanje, izmena, pregled).

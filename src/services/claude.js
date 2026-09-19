@@ -91,6 +91,12 @@ function systemPrompt() {
     '',
     // Trajno zapamćene činjenice — prazno ako ih još nema.
     zaSystemPrompt(),
+    '',
+    // Namerno PONOVLJENO na kraju: pravilo o pismu stoji i na vrhu, ali na dugom
+    // system promptu model ume da odluta — posebno kad u istoriji vidi ćirilicu
+    // (npr. iz starih transkripata). Poslednja instrukcija najbolje "drži".
+    'PODSETNIK: odgovor piši isključivo latinicom, nikada ćirilicom — bez izuzetka, ' +
+      'čak i ako je poruka korisnika ili sadržaj alata na ćirilici.',
   ]
     .filter((red) => red !== '')
     .join('\n');

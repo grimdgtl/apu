@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { logger, skrati } from '../logger.js';
+import { uLatinicu, imaCirilice } from './pismo.js';
 
 /**
  * Govor u tekst preko Whisper-a.
@@ -59,6 +60,14 @@ export async function transcribe(audioBuffer, filename = 'voice.ogg') {
   form.append('file', new Blob([audioBuffer], { type: mimeFor(filename) }), filename);
   form.append('model', p.model);
   form.append('language', 'sr'); // nagoveštaj: srpski (kraće komande bolje pogađa)
+  // Whisper srpski podrazumevano ispisuje ĆIRILICOM. `prompt` služi kao uzorak
+  // stila — latinični tekst ga navede da i transkript bude latinica. Nije
+  // garancija (zato posle ide preslovljavanje), ali smanjuje posao.
+  form.append(
+    'prompt',
+    'Transkript je na srpskom jeziku, pisan latinicom. Primer: Ćao, šta ima? ' +
+      'Đorđe je poslao mejl u vezi sa fakturom, treba da mu odgovorim danas.',
+  );
 
   const res = await fetch(p.url, {
     method: 'POST',
@@ -74,7 +83,16 @@ export async function transcribe(audioBuffer, filename = 'voice.ogg') {
     );
   }
 
-  const text = (data.text || '').trim();
+  const sirovo = (data.text || '').trim();
+
+  // KLJUČNO: transkript ulazi u istoriju razgovora kao korisnikova poruka. Ako
+  // ostane ćirilica, model je vidi u kontekstu i počne da odgovara ćirilicom —
+  // a pošto se istorija čuva na disk, to se prenosi i na sve naredne razgovore.
+  const text = uLatinicu(sirovo);
+  if (imaCirilice(sirovo)) {
+    logger.info('Transkript je stigao ćirilicom — preslovljen u latinicu.');
+  }
+
   logger.info(`Transkribovana glasovna (${p.model}): "${skrati(text, 80)}"`);
   return text;
 }

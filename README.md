@@ -41,7 +41,7 @@ Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →
 | Type | Behaviour |
 |---|---|
 | **Text** | Regular message. |
-| **Voice** | Transcribed with Whisper, then handled exactly like text. The bot **replies in text**, never with audio. |
+| **Voice** | Transcribed with Whisper, then handled exactly like text. The bot **replies in text**, never with audio. Whisper writes Serbian in Cyrillic, so transcripts are transliterated to Latin before they enter the conversation history — otherwise the model starts mirroring the script. |
 | **Image** | Sent to Claude for analysis (e.g. "extract the total from this receipt"). Supported: JPEG, PNG, GIF, WebP — as a photo or as a file. |
 
 ### Tools available to Claude
@@ -152,6 +152,8 @@ apu/
     │   ├── drive.js        # search, read, create documents
     │   ├── mail.js         # IMAP read/drafts + sending (Resend or SMTP)
     │   ├── transcribe.js   # Whisper (OpenAI or Groq)
+    │   ├── pismo.js        # Cyrillic → Latin, enforced on input and output
+    │   ├── motivation.js   # morning message (OpenAI), remembers the last ones
     │   ├── weather.js      # Open-Meteo forecast
     │   ├── memory.js       # long-term facts, injected into the system prompt
     │   ├── insights.js     # statistics over checklist + journal
@@ -403,6 +405,7 @@ For invoices, create a Drive folder and copy its ID from the URL into
 | Sending mail | `RESEND_API_KEY` **or** `SMTP_*` | Resend is recommended — it goes over HTTPS, so it works even where outbound SMTP is blocked (Hetzner and others block it). Verify your domain's DNS records first. SMTP is used only when `RESEND_API_KEY` is empty |
 | Voice messages | `OPENAI_API_KEY` or `GROQ_API_KEY` | Groq has a free tier |
 | Semantic search | `OPENAI_API_KEY` | Same key; used for embeddings |
+| Morning motivation | `OPENAI_API_KEY`, `MOTIVATION_MODEL`, `MOTIVATION_HISTORY` | Same key. Without it Claude writes the message instead — the greeting is never skipped |
 | Weather | `WEATHER_LAT/LON/LOCATION` | No key needed (Open-Meteo). Defaults to Belgrade |
 | Timezone | `TIMEZONE` | Drives every cron schedule |
 

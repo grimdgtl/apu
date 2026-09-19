@@ -87,7 +87,7 @@ export async function generateReport(opts = {}) {
   const raw = parts.join('\n\n');
 
   const content = await generateText(
-    `Sastavi uredan, profesionalan izveštaj na srpskom pod naslovom "${docTitle}". ` +
+    `Sastavi uredan, profesionalan izveštaj na srpskom, latinicom, pod naslovom "${docTitle}". ` +
       `Organizuj ga u jasne sekcije sa naslovima, koristi liste gde ima smisla, i na kraju ` +
       `dodaj kratak zaključak/preporuke. Ne izmišljaj podatke — koristi samo ono što je dato. ` +
       (instructions ? `Poseban zahtev: ${instructions}\n\n` : '\n') +

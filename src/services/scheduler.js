@@ -3,6 +3,7 @@ import { config, featureEnabled } from '../config.js';
 import { logger } from '../logger.js';
 import { sendMessage } from './telegram.js';
 import { generateText } from './claude.js';
+import { motivacionaPoruka } from './motivation.js';
 import * as calendar from './calendar.js';
 import * as notion from './notion.js';
 import { checkAllSites, formatReport } from './monitor.js';
@@ -120,14 +121,9 @@ async function jutarnjiPozdrav() {
   try {
     const prognoza = featureEnabled.weather ? await getForecastLine() : null;
 
-    const text = await generateText(
-      'Napiši kratku jutarnju poruku korisniku, na srpskom, latinicom, bez Markdown ' +
-        'formatiranja. Ton: energičan i podsticajan, kao dobar prijatelj — u duhu ' +
-        '"danas je nov dan, idemo jako". Maksimalno 3 rečenice, bez patetike i bez klišea ' +
-        'tipa "grabi dan". Ako je data prognoza, prirodno je uklopi (npr. da obuče nešto ' +
-        'lakše ili ponese kišobran). Koristi ISKLJUČIVO podatke ispod — ništa ne izmišljaj.\n\n' +
-        (prognoza ? `Prognoza: ${prognoza}` : 'Prognoza nije dostupna — ne pominji vreme.'),
-    );
+    // Poruku piše OpenAI i pamti prethodne, da se jutra ne ponavljaju.
+    // Bez OPENAI_API_KEY ovo samo padne nazad na Claude — pozdrav ide svakako.
+    const text = await motivacionaPoruka({ prognoza });
 
     // Ponedeljkom uz pozdrav ide i pregled rođendana za celu nedelju, da se
     // poklon/čestitka mogu isplanirati unapred, a ne tek na sam dan.
@@ -413,7 +409,7 @@ async function morningBriefing() {
       : 'Nema dostupnih podataka iz kalendara ni Notion-a.';
 
     const text = await generateText(
-      `Napravi poslovni pregled dana na srpskom na osnovu ovih podataka. ` +
+      `Napravi poslovni pregled dana na srpskom, latinicom, na osnovu ovih podataka. ` +
         `NE pominji vreme ni vremensku prognozu — to je korisnik već dobio ranije. ` +
         `Redosled: prvo raspored iz kalendara (sastanci po vremenu), zatim zadaci, ` +
         `pa na kraju nepročitani mejlovi (koliko ih ima i za svaki pošiljalac i naslov). ` +
