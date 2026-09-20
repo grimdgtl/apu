@@ -98,6 +98,24 @@ which points outside the repository (the data volume is the natural spot) so a p
 never lands in version control. Without a logo file the issuer's brand name is typeset
 instead. Swap `assets/fonts/Montserrat-*.ttf` for a different typeface — static cuts only.
 
+### Latin script is enforced, not requested
+
+The system prompt has always said "write in Latin script, never Cyrillic", but an
+instruction is only a request to the model — and it leaked. Whisper transcribes Serbian
+in **Cyrillic**, that transcript enters the conversation history as the user's own message,
+and the model starts mirroring the script it sees in context. Because history is persisted
+to disk, a single voice message contaminated every later conversation.
+
+So the script is now imposed deterministically in `services/pismo.js`: transcripts are
+transliterated before they reach the history (the cause), and everything the bot sends to
+Telegram is transliterated on the way out (the guarantee), with a warning logged whenever
+the model does drift. Whisper also gets a Latin sample in its `prompt` field, and the
+script rule is repeated at the **end** of the system prompt, where a long context makes the
+last instruction stick best.
+
+One consequence worth knowing: because the rule is absolute, asking the bot for Cyrillic
+output will still return Latin.
+
 ### Recurring events
 
 `calendar_create_event` takes a `ponavljanje` object and stores the series as a single Google
@@ -637,7 +655,7 @@ Everything else is plain language (the bot is used in Serbian):
 | Every day **4:00** | Refreshes the semantic search index (silent) |
 | Every day **5:00** | Creates the day's checklist row and journal entry (linked to each other), silently |
 | Monday **5:00** | Creates the weekly recurring personal task (due Sunday) |
-| Every day **6:00** | Morning greeting: motivation + weather forecast (on **Mondays** also whose birthday falls that week, and on which day) |
+| Every day **6:00** | Morning greeting: motivation (written by OpenAI, never a repeat) + weather forecast (on **Mondays** also whose birthday falls that week, and on which day) |
 | Every day **9:30** | Work briefing: calendar, tasks, unread mail (no weather) |
 | **Hourly, 8–22** | Unread-mail check — reports **only new** messages |
 | Every day **10:00** | Silent website check — speaks up **only if something is wrong** |
@@ -653,6 +671,13 @@ Everything else is plain language (the bot is used in Serbian):
 > reported, so the same unread mail is never announced twice. Once you read a message it
 > drops out of that record. It stays quiet overnight — the default schedule is
 > `0 8-22 * * *`.
+
+> **The morning message does not repeat itself.** It is written by OpenAI rather than by
+> the same model as the rest of the bot, and the last `MOTIVATION_HISTORY` messages (30 by
+> default, kept in `data/motivacije.json`) are fed back into the prompt as "do not repeat
+> these". The angle also rotates by day of the year, so neither the wording nor the theme
+> repeats. If OpenAI is unreachable — or `OPENAI_API_KEY` is not set at all — Claude writes
+> the message instead, so the greeting never goes missing.
 
 > **Birthdays repeat by themselves.** Only the day and month are matched, so every entry
 > comes back every year with nothing to maintain. Monday's 6:00 greeting previews the whole
