@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Centralno mesto za sve konfiguracione vrednosti.
@@ -114,10 +117,14 @@ export const config = {
     lastKnownNumber: optional('INVOICE_LAST_NUMBER'),
     // Folder na Drive-u u koji se snimaju PDF-ovi (prazno = koren Drive-a).
     driveFolderId: optional('GOOGLE_INVOICES_FOLDER_ID'),
-    // Putanja do loga koji ide na fakturu. Logo je lični/brendirani fajl pa
-    // NIJE u repozitorijumu — najzgodnije ga je staviti u DATA_DIR volumen
-    // (npr. /app/data/logo.png). Ako fajla nema, ispisuje se naziv brenda.
-    logoPath: optional('INVOICE_LOGO_PATH'),
+    // Logo koji ide u zaglavlje fakture. Podrazumevano `assets/logo.png` iz
+    // repozitorijuma; INVOICE_LOGO_PATH ga menja kad se logo drži van repoa
+    // (npr. /app/data/logo.png na Docker volumenu). Ako fajla nema ni na
+    // jednom od ta dva mesta, umesto slike se ispisuje naziv brenda.
+    // Razrešava se OVDE, na jednom mestu, da provera i crtanje gledaju isti put.
+    logoPath:
+      optional('INVOICE_LOGO_PATH') ||
+      path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'logo.png'),
   },
 
   google: {
@@ -265,8 +272,13 @@ export function nedostajuPodaciIzdavaoca() {
     ['INVOICE_RESPONSIBLE_PERSON', i.responsiblePerson],
   ];
 
-  // Brend se štampa u zaglavlju samo kad nema loga — traži se tek tada.
-  if (!config.invoice.logoPath) obavezni.push(['INVOICE_ISSUER_BRAND', i.brand]);
+  // Brend se štampa u zaglavlju samo kad logo FAJL ne postoji, pa se tek tada
+  // i traži. Ranije se gledalo je li postavljen INVOICE_LOGO_PATH, što je
+  // pogrešno pitanje: logo iz repozitorijuma ne postavlja tu promenljivu, pa
+  // je bot tražio brend koji nikad ne bi ni odštampao — i odbijao fakturu.
+  if (!fs.existsSync(config.invoice.logoPath)) {
+    obavezni.push(['INVOICE_ISSUER_BRAND', i.brand]);
+  }
 
   return obavezni.filter(([, vrednost]) => !vrednost).map(([ime]) => ime);
 }
