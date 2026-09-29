@@ -452,11 +452,17 @@ document: it is better for the bot to refuse than to be wrong. If any of them is
 flags it, and the startup log warns. `INVOICE_ISSUER_BRAND` is required only when
 `INVOICE_LOGO_PATH` is not set, since that is the only case where it is printed.
 
-**Logo.** Deliberately not in the repository — see `assets/logo.example.png` for the expected
-proportions (roughly 4:1, transparent PNG). Put your own file somewhere persistent and point
-`INVOICE_LOGO_PATH` at it; in Docker the data volume is the natural place
-(`/app/data/logo.png`). Without a logo file the invoice prints `INVOICE_ISSUER_BRAND` as text,
-which looks fine on its own.
+**Logo.** Put your own file at `assets/logo.png` — see `assets/logo.example.png` for the
+expected proportions (roughly 4:1, transparent PNG). That path is the built-in fallback, so
+nothing else needs configuring.
+
+If you would rather keep the logo out of the repository, put it somewhere persistent instead
+and point `INVOICE_LOGO_PATH` at it; in Docker the data volume is the natural place
+(`/app/data/logo.png`). The two are exclusive: when `INVOICE_LOGO_PATH` is set it wins, and
+the file in `assets/` is ignored — so set the variable only if you actually took that route.
+
+Without a logo file on either path the invoice prints `INVOICE_ISSUER_BRAND` as text, which
+looks fine on its own.
 
 The **fonts** (Montserrat, in `assets/fonts/`) ship with the repo under the SIL Open Font
 License, so nothing to do there. Swap the four `.ttf` files if you want a different typeface —
