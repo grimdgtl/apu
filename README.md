@@ -444,6 +444,14 @@ INVOICE_ISSUER_BANK=Your bank
 INVOICE_RESPONSIBLE_PERSON=Your name
 ```
 
+These have **no defaults**, on purpose. An earlier version fell back to the sample values
+from `.env.example`, so an unconfigured server quietly printed somebody else's name, a made-up
+tax number and — worst of all — the wrong bank account on a real invoice. An invoice is a
+document: it is better for the bot to refuse than to be wrong. If any of them is missing,
+`invoice_create` stops before it draws anything and names the variables to fill in, `/status`
+flags it, and the startup log warns. `INVOICE_ISSUER_BRAND` is required only when
+`INVOICE_LOGO_PATH` is not set, since that is the only case where it is printed.
+
 **Logo.** Deliberately not in the repository — see `assets/logo.example.png` for the expected
 proportions (roughly 4:1, transparent PNG). Put your own file somewhere persistent and point
 `INVOICE_LOGO_PATH` at it; in Docker the data volume is the natural place

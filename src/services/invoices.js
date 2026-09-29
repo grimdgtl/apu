@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { config, featureEnabled } from '../config.js';
+import { config, featureEnabled, nedostajuPodaciIzdavaoca } from '../config.js';
 import { logger } from '../logger.js';
 import * as notion from './notion.js';
 import { uploadFile } from './drive.js';
@@ -45,6 +45,17 @@ export async function pripremiFakturu(ulaz) {
   if (!featureEnabled.invoices) {
     throw new Error(
       'Fakture nisu podešene (trebaju NOTION_CLIENTS_DB_ID, NOTION_INVOICES_DB_ID i Google OAuth).',
+    );
+  }
+
+  // Podaci izdavaoca dolaze ISKLJUČIVO iz .env — nema ih odakle nadoknaditi.
+  // Ako fale, faktura mora da stane: netačan PIB ili broj računa na računu je
+  // gore od nenapravljene fakture, a bez ove provere greška bi prošla nemo.
+  const faliIzdavalac = nedostajuPodaciIzdavaoca();
+  if (faliIzdavalac.length) {
+    throw new Error(
+      `Nisu podešeni podaci tvoje firme, pa fakturu ne mogu da napravim. ` +
+        `Dopuni u .env na serveru: ${faliIzdavalac.join(', ')}.`,
     );
   }
 

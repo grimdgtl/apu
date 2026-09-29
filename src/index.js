@@ -1,7 +1,7 @@
 import { bot, sendMessage } from './services/telegram.js';
 import { startScheduler } from './services/scheduler.js';
 import { proveriPriPokretanju } from './services/schema.js';
-import { featureEnabled, config } from './config.js';
+import { featureEnabled, config, nedostajuPodaciIzdavaoca } from './config.js';
 import { logger } from './logger.js';
 
 /**
@@ -47,6 +47,15 @@ async function main() {
     .map(([k]) => k);
   if (iskljucene.length) {
     logger.warn(`Isključene integracije: ${iskljucene.join(', ')}`);
+  }
+
+  // Fakture mogu biti uključene a ipak neupotrebljive — baze i Google su tu,
+  // ali podaci izdavaoca fale. Bolje glasno pri pokretanju nego kad zatreba.
+  if (featureEnabled.invoices) {
+    const fali = nedostajuPodaciIzdavaoca();
+    if (fali.length) {
+      logger.warn(`Fakture: nisu podešeni podaci izdavaoca — fali ${fali.join(', ')}`);
+    }
   }
 
   startScheduler();

@@ -90,17 +90,21 @@ export const config = {
   // Podaci koji idu na svaku fakturu. Menjaju se samo kroz .env — ne kroz chat,
   // da model ne može da izmeni ko je izdavalac ni na koji račun se uplaćuje.
   invoice: {
+    // NAMERNO bez podrazumevanih vrednosti. Ranije su ovde stajali primeri iz
+    // .env.example, pa je bot na nepodešenom serveru tiho odštampao tuđe ime,
+    // izmišljen PIB i — najgore — pogrešan broj računa na PRAVOJ fakturi.
+    // Račun je dokument; bolje da izrada stane nego da izađe netačna.
     issuer: {
-      name: optional('INVOICE_ISSUER_NAME', 'Petar Petrović PR Studio Primer'),
-      brand: optional('INVOICE_ISSUER_BRAND', 'PRIMER'),
-      address: optional('INVOICE_ISSUER_ADDRESS', 'Nikole Tesle 1'),
-      city: optional('INVOICE_ISSUER_CITY', 'Beograd'),
-      phone: optional('INVOICE_ISSUER_PHONE', '+381600000000'),
-      pib: optional('INVOICE_ISSUER_PIB', '100000001'),
-      mb: optional('INVOICE_ISSUER_MB', '20000001'),
-      bankAccount: optional('INVOICE_ISSUER_ACCOUNT', '000-0000000000000-00'),
-      bankName: optional('INVOICE_ISSUER_BANK', 'Naziv banke'),
-      responsiblePerson: optional('INVOICE_RESPONSIBLE_PERSON', 'Petar Petrović'),
+      name: optional('INVOICE_ISSUER_NAME'),
+      brand: optional('INVOICE_ISSUER_BRAND'),
+      address: optional('INVOICE_ISSUER_ADDRESS'),
+      city: optional('INVOICE_ISSUER_CITY'),
+      phone: optional('INVOICE_ISSUER_PHONE'),
+      pib: optional('INVOICE_ISSUER_PIB'),
+      mb: optional('INVOICE_ISSUER_MB'),
+      bankAccount: optional('INVOICE_ISSUER_ACCOUNT'),
+      bankName: optional('INVOICE_ISSUER_BANK'),
+      responsiblePerson: optional('INVOICE_RESPONSIBLE_PERSON'),
     },
     comment: optional('INVOICE_COMMENT', 'Račun je važeći bez pečata i potpisa.'),
     vatNote: optional('INVOICE_VAT_NOTE', 'Pravno lice nije u sistemu PDV-a.'),
@@ -237,6 +241,35 @@ export const config = {
     semanticIndex: optional('SEMANTIC_INDEX_CRON', '0 4 * * *'),
   },
 };
+
+/**
+ * Koje promenljive izdavaoca fale da bi faktura bila ispravna.
+ *
+ * Podaci klijenta se povlače iz Notion-a, ali podaci izdavaoca dolaze samo iz
+ * .env — ako fale, nema ih odakle nadoknaditi. Zato se ovde nabrajaju poimence,
+ * da poruka o grešci kaže tačno šta treba dopuniti.
+ *
+ * @returns {string[]} imena promenljivih koje nedostaju
+ */
+export function nedostajuPodaciIzdavaoca() {
+  const i = config.invoice.issuer;
+  const obavezni = [
+    ['INVOICE_ISSUER_NAME', i.name],
+    ['INVOICE_ISSUER_ADDRESS', i.address],
+    ['INVOICE_ISSUER_CITY', i.city],
+    ['INVOICE_ISSUER_PHONE', i.phone],
+    ['INVOICE_ISSUER_PIB', i.pib],
+    ['INVOICE_ISSUER_MB', i.mb],
+    ['INVOICE_ISSUER_ACCOUNT', i.bankAccount],
+    ['INVOICE_ISSUER_BANK', i.bankName],
+    ['INVOICE_RESPONSIBLE_PERSON', i.responsiblePerson],
+  ];
+
+  // Brend se štampa u zaglavlju samo kad nema loga — traži se tek tada.
+  if (!config.invoice.logoPath) obavezni.push(['INVOICE_ISSUER_BRAND', i.brand]);
+
+  return obavezni.filter(([, vrednost]) => !vrednost).map(([ime]) => ime);
+}
 
 /**
  * Vraća true ako su sve promenljive za dati servis popunjene.

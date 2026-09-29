@@ -1,5 +1,5 @@
 import { Telegraf, Markup } from 'telegraf';
-import { config, featureEnabled } from '../config.js';
+import { config, featureEnabled, nedostajuPodaciIzdavaoca } from '../config.js';
 import { logger, skrati } from '../logger.js';
 import { runAgent } from './claude.js';
 import { loadHistories, saveHistories } from '../store.js';
@@ -203,6 +203,14 @@ bot.command('status', (ctx) => {
   );
 
   const extra = [`\nModel: ${config.anthropic.model}`];
+
+  // Fakture umeju da budu "uključene" a ipak neupotrebljive: sve baze i Google
+  // su tu, ali podaci izdavaoca fale. Bez ovog reda se to vidi tek kad izrada
+  // pukne, pa /status odmah kaže šta nedostaje.
+  if (featureEnabled.invoices) {
+    const fali = nedostajuPodaciIzdavaoca();
+    if (fali.length) extra.push(`⚠️ Podaci firme za fakture nisu podešeni: ${fali.join(', ')}`);
+  }
   const cekaju = outbox.broj();
   if (cekaju > 0) extra.push(`Mejlova čeka potvrdu: ${cekaju}`);
   const fakture = invoices.broj();
