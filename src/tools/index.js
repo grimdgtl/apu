@@ -84,6 +84,9 @@ const handlers = {
 
   // Mail
   mail_list_unread: (input) => mail.listUnread(input),
+  mail_search: (input) => mail.listMessages(input),
+  mail_read: (input) => mail.readMessage(input),
+  mail_folders: () => mail.listFolders(),
   mail_save_draft: (input) => mail.saveDraft(input),
   // NE šalje — priprema poruku i traži potvrdu vlasnika dugmetom u Telegramu.
   // Model nema način da sam pošalje mejl, pa ubačeno uputstvo iz tuđeg mejla

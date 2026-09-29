@@ -57,7 +57,7 @@ Text / Voice / Image  →  Telegram  →  Claude (agentic loop)  →  tools  →
 | **Personal to-do list** | `todo_list`, `todo_add`, `todo_set_status` |
 | **Google Drive** | `drive_search`, `drive_read`, `drive_create` |
 | **Google Calendar** | `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_event` (incl. recurring) |
-| **Email** | `mail_list_unread`, `mail_save_draft`, `mail_send` (prepares only — see below) |
+| **Email** | `mail_search`, `mail_read`, `mail_folders`, `mail_list_unread`, `mail_save_draft`, `mail_send` (prepares only — see below) |
 | **Long-term memory** | `memory_save`, `memory_list`, `memory_update`, `memory_forget` |
 | **Habit insights** | `insights_get` |
 | **Semantic search** | `semantic_search`, `semantic_reindex` |
@@ -126,6 +126,23 @@ block with no `tool_result`, and the Anthropic API rejects every later request t
 it, so one oversized ask used to brick the conversation until `/reset`. Conversation history
 is now sanitised both when loaded and before it is written, so an unpaired tool call is
 dropped instead of persisting.
+
+### Reading the whole mailbox, not just what is unread
+
+The bot used to search only for unseen messages, so the moment you opened a mail on your
+phone it vanished from what the bot could see — asking it about an email from last week got
+you nothing. `mail_search` searches the mailbox proper: read and unread alike, by sender,
+recipient, subject, body text and date range, in any folder (`mail_folders` lists them,
+because the names differ per server — Gmail's `[Gmail]/Sent Mail` versus cPanel's
+`INBOX.Sent`). Search returns a 500-character preview; `mail_read` returns one message in
+full, with its attachment list.
+
+Reading never marks anything as read. ImapFlow fetches through `BODY.PEEK`, so the `\Seen`
+flag is left alone — the bot looking at your mailbox must not change its state.
+
+This does widen the untrusted surface: more attacker-supplied text reaches the model. The
+existing defences carry it — mail content is data and never an instruction, and `mail_send`
+still needs a button press (below).
 
 ### Sending email requires a button press
 
